@@ -647,3 +647,504 @@ nav button.active{
   min-height:56px;
   font-size:17px;
 }
+
+
+/* =========================================================
+   GNANNT_AIx MOBILE / TABLET UX FINAL
+   Ziel: iPhone/Android kompakt, Tablet sauber, Desktop unverändert
+   ========================================================= */
+
+html, body, #root {
+  min-height: 100%;
+}
+
+body {
+  -webkit-text-size-adjust: 100%;
+  overflow-x: hidden;
+}
+
+@media (max-width: 767px) {
+  .app {
+    padding: 10px;
+  }
+
+  .shell {
+    gap: 10px;
+    max-width: 100%;
+  }
+
+  header {
+    gap: 10px;
+    align-items: stretch;
+  }
+
+  .board-brand,
+  .screen-brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-direction: row !important;
+  }
+
+  .board-brand img {
+    width: 108px !important;
+    max-height: 38px !important;
+    object-fit: contain;
+  }
+
+  .screen-brand img {
+    width: 112px !important;
+    max-height: 42px !important;
+    object-fit: contain;
+    padding: 4px 6px;
+  }
+
+  .board-brand h1,
+  header h1 {
+    font-size: 24px !important;
+    line-height: 1.05;
+    letter-spacing: -0.4px;
+  }
+
+  .board-brand p,
+  header p {
+    font-size: 13px;
+    margin-top: 3px;
+  }
+
+  .header-actions {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .header-actions .btn {
+    min-height: 42px;
+    padding: 9px 10px;
+    font-size: 13px;
+    border-radius: 12px;
+  }
+
+  .stats {
+    grid-template-columns: 1fr !important;
+    gap: 8px;
+  }
+
+  .stat {
+    padding: 12px 14px;
+    border-radius: 16px;
+  }
+
+  .stat p {
+    font-size: 13px;
+  }
+
+  .stat strong {
+    font-size: 28px;
+    margin-top: 3px;
+  }
+
+  .stat span {
+    margin-top: 4px;
+    font-size: 14px;
+  }
+
+  .toolbar {
+    padding: 8px;
+    border-radius: 16px;
+    gap: 8px;
+    flex-direction: column;
+  }
+
+  .search {
+    min-height: 48px !important;
+    height: 48px !important;
+    flex-basis: auto !important;
+    width: 100%;
+    border-radius: 13px;
+    padding: 0 12px;
+    gap: 8px;
+  }
+
+  .search input {
+    font-size: 15px !important;
+    padding: 0 !important;
+    height: 46px;
+    line-height: 46px;
+  }
+
+  .toolbar select {
+    min-height: 46px !important;
+    width: 100%;
+    font-size: 15px;
+    border-radius: 13px;
+    padding: 10px 12px;
+  }
+
+  nav {
+    display: flex !important;
+    overflow-x: auto;
+    gap: 6px;
+    padding: 5px;
+    border-radius: 15px;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  nav button {
+    flex: 0 0 auto;
+    min-width: 116px;
+    padding: 10px 12px;
+    font-size: 13px;
+    border-radius: 12px;
+  }
+
+  .stack {
+    gap: 10px;
+  }
+
+  .panel {
+    padding: 12px;
+    border-radius: 17px;
+  }
+
+  .panel h3,
+  .panel-head h3 {
+    font-size: 17px;
+  }
+
+  .tiny {
+    font-size: 12px;
+    margin: 5px 0;
+  }
+
+  .grid,
+  .two {
+    grid-template-columns: 1fr !important;
+    gap: 10px;
+    margin-top: 10px;
+  }
+
+  .project-card {
+    border-radius: 16px;
+  }
+
+  .card-head {
+    padding: 12px 12px 6px;
+    gap: 8px;
+  }
+
+  .card-title {
+    font-size: 16px;
+  }
+
+  .card-title.big {
+    font-size: 20px;
+  }
+
+  .card-title-wrap p {
+    font-size: 13px;
+  }
+
+  .badge,
+  .mini-badge,
+  .live {
+    font-size: 11px;
+    padding: 4px 7px;
+  }
+
+  .meta {
+    padding: 0 12px 9px;
+    gap: 5px;
+  }
+
+  .meta div {
+    font-size: 13px;
+    gap: 6px;
+  }
+
+  .note {
+    margin: 0 12px 10px;
+    padding: 9px 10px;
+    border-radius: 12px;
+    font-size: 13px;
+  }
+
+  .card-actions {
+    padding: 0 12px 12px;
+    gap: 6px;
+  }
+
+  .card-actions .btn {
+    flex: 1 1 46%;
+    font-size: 12px;
+    min-height: 36px;
+    padding: 7px 8px;
+  }
+
+  .empty {
+    padding: 14px;
+    border-radius: 14px;
+    font-size: 13px;
+  }
+
+  .row {
+    padding: 11px;
+    border-radius: 14px;
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .row-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .modal-bg {
+    align-items: flex-end;
+    padding: 0;
+  }
+
+  .modal {
+    width: 100%;
+    max-height: 92vh;
+    border-radius: 22px 22px 0 0;
+    padding: 18px;
+  }
+
+  .modal h2 {
+    font-size: 22px;
+    padding-right: 38px;
+  }
+
+  .form-grid {
+    grid-template-columns: 1fr !important;
+    gap: 9px;
+  }
+
+  .input,
+  .form-grid .input {
+    min-height: 46px;
+    border-radius: 13px;
+    padding: 10px 12px;
+    font-size: 15px;
+  }
+
+  .textarea {
+    min-height: 92px;
+  }
+
+  .upload-box {
+    margin-top: 10px;
+    padding-top: 10px;
+  }
+
+  .right .btn,
+  .modal .btn.primary {
+    width: 100%;
+    min-height: 48px;
+  }
+
+  /* Login mobile */
+  .final-login,
+  .corporate-login {
+    grid-template-columns: 1fr !important;
+  }
+
+  .login-preview,
+  .login-visual {
+    display: none !important;
+  }
+
+  .login-side,
+  .login-main {
+    min-height: 100vh;
+    padding: 22px 14px;
+    justify-content: center;
+    align-items: stretch;
+  }
+
+  .brand-block,
+  .login-brand {
+    text-align: center;
+    margin-bottom: 18px;
+  }
+
+  .login-logo,
+  .gnannt-logo {
+    width: min(250px, 78vw) !important;
+    max-height: 80px !important;
+    object-position: center !important;
+    margin: 0 auto 16px !important;
+  }
+
+  .brand-block h1,
+  .login-brand h1 {
+    font-size: 28px !important;
+  }
+
+  .brand-block p,
+  .login-brand p {
+    font-size: 15px !important;
+    margin-top: 8px;
+  }
+
+  .final-login-card,
+  .corporate-card,
+  .login-card {
+    width: 100%;
+    max-width: none;
+    padding: 20px;
+    border-radius: 18px;
+  }
+
+  .final-login-card h2,
+  .corporate-card h2 {
+    font-size: 23px;
+  }
+
+  .login-copy {
+    font-size: 15px;
+  }
+
+  .screen-link {
+    justify-self: center;
+  }
+
+  .login-side footer,
+  .login-main footer {
+    text-align: center;
+    margin-top: 22px;
+    font-size: 12px;
+  }
+}
+
+/* Tablet: kompakter als Desktop, aber mit 2-Spalten */
+@media (min-width: 768px) and (max-width: 1180px) {
+  .app {
+    padding: 18px;
+  }
+
+  .shell {
+    gap: 16px;
+  }
+
+  .board-brand img {
+    width: 145px;
+    max-height: 50px;
+  }
+
+  header h1,
+  .board-brand h1 {
+    font-size: 38px !important;
+  }
+
+  .header-actions .btn {
+    padding: 10px 12px;
+  }
+
+  .stats {
+    gap: 10px;
+  }
+
+  .stat {
+    padding: 16px;
+  }
+
+  .toolbar {
+    padding: 12px;
+  }
+
+  .search {
+    min-height: 54px !important;
+    height: 54px !important;
+  }
+
+  .search input {
+    font-size: 16px !important;
+    padding: 0 !important;
+  }
+
+  .toolbar select {
+    min-height: 54px !important;
+  }
+
+  nav button {
+    padding: 11px 9px;
+    font-size: 14px;
+  }
+
+  .grid {
+    grid-template-columns: repeat(2, minmax(0,1fr));
+    gap: 12px;
+  }
+
+  .panel {
+    padding: 16px;
+  }
+
+  .card-title {
+    font-size: 17px;
+  }
+
+  .meta div,
+  .note {
+    font-size: 13px;
+  }
+}
+
+/* TV/Screen bleibt groß, aber proportional */
+@media (max-width: 767px) {
+  .screen-top {
+    min-height: auto;
+    padding: 12px;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .screen-actions {
+    justify-content: flex-start;
+    gap: 6px;
+  }
+
+  .screen-actions .btn,
+  .screen-actions .live {
+    font-size: 12px;
+    padding: 8px 9px;
+  }
+
+  .screen-scroll {
+    max-height: calc(100vh - 150px);
+    padding: 10px;
+    gap: 10px;
+  }
+
+  .screen-brand {
+    flex-direction: row !important;
+    align-items: center;
+  }
+
+  .screen-brand h1 {
+    font-size: 23px !important;
+  }
+
+  .screen-brand p {
+    font-size: 13px;
+  }
+}
+
+/* iOS safe area */
+@supports (padding: max(0px)) {
+  @media (max-width: 767px) {
+    .app {
+      padding-left: max(10px, env(safe-area-inset-left));
+      padding-right: max(10px, env(safe-area-inset-right));
+      padding-bottom: max(10px, env(safe-area-inset-bottom));
+    }
+  }
+}
