@@ -1166,3 +1166,48 @@ body {
 @media(max-width:767px){
   .online-pill{width:100%;min-height:38px;font-size:12px}
 }
+
+/* Screen topbar final: compact icon buttons + date/time */
+.screen-actions{gap:10px}
+.screen-clock{
+  display:flex;
+  flex-direction:column;
+  align-items:flex-end;
+  justify-content:center;
+  color:#e2e8f0;
+  line-height:1.1;
+  margin-right:6px;
+  min-width:190px;
+}
+.screen-clock strong{
+  font-size:15px;
+  font-weight:800;
+  text-transform:capitalize;
+}
+.screen-clock span{
+  font-size:28px;
+  font-weight:900;
+  letter-spacing:-.5px;
+}
+.screenbtn.icon-only{
+  width:42px;
+  height:42px;
+  padding:0;
+  border-radius:13px;
+}
+.screen-actions .live{min-height:42px}
+@media(max-width:767px){
+  .screen-clock{
+    align-items:flex-start;
+    min-width:auto;
+    width:100%;
+    margin-right:0;
+    order:-1;
+  }
+  .screen-clock strong{font-size:13px}
+  .screen-clock span{font-size:22px}
+  .screenbtn.icon-only{
+    width:38px;
+    height:38px;
+  }
+}
