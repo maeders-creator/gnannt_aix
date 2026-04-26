@@ -7,7 +7,7 @@ const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_s
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY)
 
 const PUBLIC_SCREEN_HASH = '#screen'
-const STORAGE_BUCKET = 'gnannt-aix-files'
+const STORAGE_BUCKET = 'uploads'
 const STATUS_ORDER = ['AUFMASS', 'KONSTRUKTION', 'PRODUKTION', 'MONTAGE']
 const ALL_STATUS = ['AUFMASS', 'KONSTRUKTION', 'PRODUKTION', 'MONTAGE', 'ERLEDIGT']
 const EMPLOYEES = ['Ruben', 'Edmund', 'Gerold', 'Samuel', 'Jonathan', 'Ali', 'Waldemar']
@@ -57,41 +57,77 @@ function Card({ item, onEdit, onStatus, compact, dark, draggable, onDragStart })
   )
 }
 
-function Login({ email, setEmail, username, setUsername, password, setPassword, onPlanerLogin, onLogin, error, info, openScreen }) {
+function Login({ username, setUsername, password, setPassword, onPlanerLogin, error, openScreen }) {
   return (
-    <div className="login-page">
-      <div className="login-card">
-        <div className="login-top">
-          <div className="login-icon"><LockKeyhole size={26} /></div>
-          <div>
-            <h1>GNANNT_AIx Login</h1>
-            <p>Planer-Login oder optional Magic Link</p>
+    <div className="login-page final-login">
+      <section className="login-side">
+        <div className="brand-block">
+          <img src="/gnannt-logo.png" alt="Gnannt" className="login-logo" />
+          <h1>Produktionsplanung</h1>
+          <p>Produktion & Montage effizient planen und steuern</p>
+        </div>
+
+        <div className="login-card final-login-card">
+          <h2>Anmelden</h2>
+          <p className="login-copy">Bitte melden Sie sich an, um fortzufahren.</p>
+
+          <label>Benutzername</label>
+          <input
+            className="input"
+            value={username}
+            onChange={e => setUsername(e.target.value)}
+            placeholder="Benutzername eingeben"
+            autoComplete="username"
+          />
+
+          <label>Passwort</label>
+          <input
+            className="input"
+            type="password"
+            value={password}
+            onChange={e => setPassword(e.target.value)}
+            placeholder="Passwort eingeben"
+            autoComplete="current-password"
+            onKeyDown={e => { if(e.key === 'Enter') onPlanerLogin() }}
+          />
+
+          {error && <div className="error">{error}</div>}
+
+          <button className="btn primary full login-submit" onClick={onPlanerLogin}>Anmelden</button>
+          <button className="screen-link" onClick={openScreen}>Produktionsscreen öffnen</button>
+        </div>
+
+        <footer>© 2026 Gnannt GmbH. Alle Rechte vorbehalten.</footer>
+      </section>
+
+      <section className="login-preview">
+        <div className="preview-top">
+          <img src="/gnannt-logo.png" alt="Gnannt" className="preview-logo" />
+          <span>Produktionsplanung</span>
+        </div>
+
+        <div className="preview-grid">
+          <div className="preview-card active">Übersicht</div>
+          <div className="preview-card">Plantafel</div>
+          <div className="preview-card">PDF Upload</div>
+          <div className="preview-card">Kalender</div>
+        </div>
+
+        <div className="preview-content">
+          <h2>Übersicht</h2>
+          <p>Willkommen in der Gnannt Produktionsplanung.</p>
+          <div className="preview-stats">
+            <div><strong>4</strong><span>Bereiche</span></div>
+            <div><strong>PDF</strong><span>Upload</span></div>
+            <div><strong>Live</strong><span>Plantafel</span></div>
+          </div>
+          <div className="preview-upload">
+            <strong>PDF Upload</strong>
+            <p>PDF-Dateien direkt zum Auftrag hochladen.</p>
+            <div className="upload-dummy">Datei auswählen</div>
           </div>
         </div>
-
-        <div className="login-block">
-          <h3>Planer Login</h3>
-          <label>Benutzername</label>
-          <input className="input" value={username} onChange={e => setUsername(e.target.value)} placeholder="Planer" />
-          <label>Passwort</label>
-          <input className="input" type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Planung" onKeyDown={e => { if(e.key === 'Enter') onPlanerLogin() }} />
-          <button className="btn primary full" onClick={onPlanerLogin}>Anmelden</button>
-        </div>
-
-        <div className="login-separator">oder optional</div>
-
-        <div className="login-block">
-          <h3>Magic Link</h3>
-          <label>E-Mail</label>
-          <input className="input" value={email} onChange={e => setEmail(e.target.value)} placeholder="name@firma.de" onKeyDown={e => { if(e.key === 'Enter') onLogin() }} />
-          <button className="btn outline full" onClick={onLogin}>Magic Link senden</button>
-        </div>
-
-        {error && <div className="error">{error}</div>}
-        {info && <div className="success">{info}</div>}
-
-        <button className="btn outline full" onClick={openScreen}>Produktionsscreen öffnen</button>
-      </div>
+      </section>
     </div>
   )
 }
@@ -101,7 +137,7 @@ function Modal({ open, close, children }) {
   return <div className="modal-bg"><div className="modal"><button className="close" onClick={close}><X size={18}/></button>{children}</div></div>
 }
 
-function Form({ form, setForm, save, saving, upload, uploading }) {
+function Form({ form, setForm, save, saving, upload, uploading, pendingFile, setPendingFile }) {
   const set = (k, v) => setForm({ ...form, [k]: v })
   return (
     <div>
@@ -119,7 +155,18 @@ function Form({ form, setForm, save, saving, upload, uploading }) {
         <input className="input" type="date" value={form.termin || ''} onChange={e => set('termin', e.target.value)} />
         <textarea className="input textarea" placeholder="Notiz / Besonderheiten" value={form.notiz || ''} onChange={e => set('notiz', e.target.value)} />
       </div>
-      {form.id && <div className="upload-box"><strong><Upload size={16}/> PDF hochladen</strong><input className="input" type="file" accept="application/pdf" onChange={e => upload(e.target.files?.[0])} />{uploading && <p>Datei wird hochgeladen...</p>}</div>}
+      <div className="upload-box">
+        <strong><Upload size={16}/> PDF hochladen</strong>
+        <input className="input" type="file" accept="application/pdf" onChange={e => {
+          const file = e.target.files?.[0]
+          if (!file) return
+          if (form.id) upload(file)
+          else setPendingFile(file)
+        }} />
+        {pendingFile && !form.id && <p className="tiny">PDF vorgemerkt: {pendingFile.name}. Wird nach dem Speichern hochgeladen.</p>}
+        {form.attachment_url && <a className="btn small outline" href={form.attachment_url} target="_blank">PDF öffnen</a>}
+        {uploading && <p>Datei wird hochgeladen...</p>}
+      </div>
       <div className="right"><button className="btn primary" onClick={save} disabled={saving}>{saving ? 'Speichert...' : 'Speichern'}</button></div>
     </div>
   )
@@ -144,6 +191,7 @@ export default function App() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [uploading, setUploading] = useState(false)
+  const [pendingFile, setPendingFile] = useState(null)
   const [connected, setConnected] = useState(false)
   const [error, setError] = useState('')
   const [email, setEmail] = useState('')
@@ -186,15 +234,55 @@ export default function App() {
 
   const login = async () => { setLoginError(''); setLoginInfo(''); if (!email.trim()) { setLoginError('Bitte E-Mail eingeben.'); return }; const { error } = await supabase.auth.signInWithOtp({ email: email.trim(), options: { emailRedirectTo: `${window.location.origin}${window.location.pathname}` } }); if (error) setLoginError(error.message); else setLoginInfo('Magic Link wurde versendet.') }
   const logout = async () => { await supabase.auth.signOut(); setUser(null); setLocalUser(null); setUsername(''); setPassword('') }
-  const save = async () => { if (!form.projekt?.trim()) return; setSaving(true); const payload = { ...form, id: undefined, termin: form.termin || null }; const res = form.id ? await supabase.from('projects').update(payload).eq('id', form.id) : await supabase.from('projects').insert(payload); if (res.error) setError(res.error.message); else { setModal(false); setForm(EMPTY); await load() }; setSaving(false) }
+  const save = async () => {
+    if (!form.projekt?.trim()) return
+    setSaving(true)
+    const payload = { ...form, id: undefined, termin: form.termin || null }
+    let newId = form.id
+    let res
+    if (form.id) {
+      res = await supabase.from('projects').update(payload).eq('id', form.id).select().single()
+    } else {
+      res = await supabase.from('projects').insert(payload).select().single()
+      newId = res.data?.id
+    }
+    if (res.error) {
+      setError(res.error.message)
+    } else {
+      if (pendingFile && newId) {
+        await upload(pendingFile, newId)
+      } else {
+        await load()
+      }
+      setModal(false)
+      setForm(EMPTY)
+      setPendingFile(null)
+    }
+    setSaving(false)
+  }
   const edit = (item) => { setForm({ ...EMPTY, ...item }); setModal(true) }
   const updateStatus = async (id, status) => { const { error } = await supabase.from('projects').update({ status }).eq('id', id); if (error) setError(error.message); else await load() }
-  const upload = async (file) => { if (!file || !form.id) return; setUploading(true); const ext = file.name.split('.').pop() || 'bin'; const path = `projects/${form.id}_${Date.now()}.${ext}`; const { error: upErr } = await supabase.storage.from(STORAGE_BUCKET).upload(path, file, { upsert: true }); if (upErr) { setError(upErr.message); setUploading(false); return }; const { data } = supabase.storage.from(STORAGE_BUCKET).getPublicUrl(path); const { error: dbErr } = await supabase.from('projects').update({ attachment_name: file.name, attachment_url: data.publicUrl }).eq('id', form.id); if (dbErr) setError(dbErr.message); else { setForm(p => ({ ...p, attachment_name: file.name, attachment_url: data.publicUrl })); await load() }; setUploading(false) }
+  const upload = async (file, projectId = form.id) => {
+    if (!file || !projectId) return false
+    setUploading(true)
+    const ext = file.name.split('.').pop() || 'pdf'
+    const path = `projects/${projectId}_${Date.now()}.${ext}`
+    const { error: upErr } = await supabase.storage.from(STORAGE_BUCKET).upload(path, file, { upsert: true })
+    if (upErr) { setError(upErr.message); setUploading(false); return false }
+    const { data } = supabase.storage.from(STORAGE_BUCKET).getPublicUrl(path)
+    const { error: dbErr } = await supabase.from('projects').update({ attachment_name: file.name, attachment_url: data.publicUrl }).eq('id', projectId)
+    if (dbErr) { setError(dbErr.message); setUploading(false); return false }
+    setForm(p => ({ ...p, attachment_name: file.name, attachment_url: data.publicUrl }))
+    setPendingFile(null)
+    await load()
+    setUploading(false)
+    return true
+  }
   const openScreen = () => { window.location.hash = PUBLIC_SCREEN_HASH; setTab('screen') }
   const openBoard = () => { window.location.hash = ''; setTab('planung') }
   const full = async () => { try { if (!document.fullscreenElement) await document.documentElement.requestFullscreen(); else await document.exitFullscreen() } catch {} }
 
-  if (!user && !isScreen) return <Login email={email} setEmail={setEmail} username={username} setUsername={setUsername} password={password} setPassword={setPassword} onPlanerLogin={planerLogin} onLogin={login} error={loginError} info={loginInfo} openScreen={openScreen} />
-  if (tab === 'screen') return <div className="screen"><div className="screen-top"><div><h1>Gnannt Produktionsplanung</h1><p>Offene Projekte: {active.length}</p></div><div className="screen-actions"><span className={connected ? 'live on' : 'live off'}><Cloud size={14}/>{connected ? 'Live verbunden' : 'Offline'}</span><Moon/><Tablet/><button className="btn screenbtn" onClick={openBoard}><Monitor size={16}/> Plantafel</button><button className="btn screenbtn" onClick={full}><Maximize size={16}/> Vollbild</button></div></div><div ref={screenRef} className="screen-scroll">{loading ? <div className="screen-empty">Lade Daten...</div> : active.length ? active.map(x => <Card key={x.id} item={x} compact dark />) : <div className="screen-empty">Keine offenen Projekte.</div>}</div></div>
-  return <div className="app"><div className="shell"><header><div><h1>Gnannt Produktionsplanung</h1><p>Produktion & Montage</p></div><div className="header-actions"><button className="btn outline" onClick={load}><RefreshCw size={16}/> Neu laden</button><button className="btn outline" onClick={openScreen}><Monitor size={16}/> Screen</button><button className="btn outline" onClick={logout}><LogOut size={16}/> Abmelden</button><button className="btn primary" onClick={() => { setForm(EMPTY); setModal(true) }}><Plus size={16}/> Neuer Auftrag</button></div></header><div className="stats stats-two"><div className="stat"><p>Offene Projekte</p><strong>{active.length}</strong></div><div className="stat"><p>Datenstatus</p><span><Cloud size={16}/> {connected ? 'Supabase live verbunden' : 'Keine Live-Verbindung'}</span>{error && <small className="error">{error}</small>}</div></div><div className="toolbar"><div className="search"><Search size={18}/><input value={search} onChange={e => setSearch(e.target.value)} placeholder="Suche nach Projekt, Kunde, Ort oder Verantwortlichem..." /></div><select value={filterLead} onChange={e => setFilterLead(e.target.value)}><option>ALLE</option>{EMPLOYEES.map(x => <option key={x}>{x}</option>)}</select></div><nav>{['planung','dashboard','kalender','uploads','ruben','team'].map(t => <button key={t} className={tab===t ? 'active' : ''} onClick={() => setTab(t)}>{t}</button>)}</nav>{loading ? <div className="panel center">Lade Projekte...</div> : tab === 'planung' ? <div className="stack">{grouped.map(g => <div key={g.status} className="panel" onDragOver={e => e.preventDefault()} onDrop={() => dragged && updateStatus(dragged, g.status)}><div className="panel-head"><h3>{g.status}</h3><span className={badgeClass(g.status)}>{g.items.length}</span></div><p className="tiny">Drag & Drop zwischen Statusbereichen aktiv</p><div className="grid">{g.items.length ? g.items.map(x => <Card key={x.id} item={x} onEdit={edit} onStatus={updateStatus} draggable onDragStart={() => setDragged(x.id)} />) : <div className="empty">Keine offenen Projekte</div>}</div></div>)}{archived.length > 0 && <div className="panel"><h3>Archiv</h3><div className="grid">{archived.map(x => <Card key={x.id} item={x} onEdit={edit} onStatus={updateStatus}/>)}</div></div>}</div> : tab === 'dashboard' ? <Dashboard active={active} archived={archived}/> : tab === 'kalender' ? <Calendar items={active} edit={edit}/> : tab === 'uploads' ? <Uploads items={items} edit={edit}/> : <Team user={user} items={tab === 'ruben' ? items.filter(x => x.status === 'MONTAGE' || x.lead === 'Ruben') : items}/>}<Modal open={modal} close={() => setModal(false)}><Form form={form} setForm={setForm} save={save} saving={saving} upload={upload} uploading={uploading} /></Modal></div></div>
+  if (!user && !isScreen) return <Login username={username} setUsername={setUsername} password={password} setPassword={setPassword} onPlanerLogin={planerLogin} error={loginError} openScreen={openScreen} />
+  if (tab === 'screen') return <div className="screen"><div className="screen-top"><div className="screen-brand"><img src="/gnannt-logo.png" alt="Gnannt" /><div><h1>Gnannt Produktionsplanung</h1><p>Offene Projekte: {active.length}</p></div></div><div className="screen-actions"><span className={connected ? 'live on' : 'live off'}><Cloud size={14}/>{connected ? 'Live verbunden' : 'Offline'}</span><Moon/><Tablet/><button className="btn screenbtn" onClick={openBoard}><Monitor size={16}/> Plantafel</button><button className="btn screenbtn" onClick={full}><Maximize size={16}/> Vollbild</button></div></div><div ref={screenRef} className="screen-scroll">{loading ? <div className="screen-empty">Lade Daten...</div> : active.length ? active.map(x => <Card key={x.id} item={x} compact dark />) : <div className="screen-empty">Keine offenen Projekte.</div>}</div></div>
+  return <div className="app"><div className="shell"><header><div className="board-brand"><img src="/gnannt-logo.png" alt="Gnannt" /><div><h1>Gnannt Produktionsplanung</h1><p>Produktion & Montage</p></div></div><div className="header-actions"><button className="btn outline" onClick={load}><RefreshCw size={16}/> Neu laden</button><button className="btn outline" onClick={openScreen}><Monitor size={16}/> Screen</button><button className="btn outline" onClick={logout}><LogOut size={16}/> Abmelden</button><button className="btn primary" onClick={() => { setForm(EMPTY); setPendingFile(null); setModal(true) }}><Plus size={16}/> Neuer Auftrag</button></div></header><div className="stats stats-two"><div className="stat"><p>Offene Projekte</p><strong>{active.length}</strong></div><div className="stat"><p>Datenstatus</p><span><Cloud size={16}/> {connected ? 'Supabase live verbunden' : 'Keine Live-Verbindung'}</span>{error && <small className="error">{error}</small>}</div></div><div className="toolbar"><div className="search"><Search size={18}/><input value={search} onChange={e => setSearch(e.target.value)} placeholder="Suche nach Projekt, Kunde, Ort oder Verantwortlichem..." /></div><select value={filterLead} onChange={e => setFilterLead(e.target.value)}><option>ALLE</option>{EMPLOYEES.map(x => <option key={x}>{x}</option>)}</select></div><nav>{['planung','dashboard','kalender','uploads','ruben','team'].map(t => <button key={t} className={tab===t ? 'active' : ''} onClick={() => setTab(t)}>{t}</button>)}</nav>{loading ? <div className="panel center">Lade Projekte...</div> : tab === 'planung' ? <div className="stack">{grouped.map(g => <div key={g.status} className="panel" onDragOver={e => e.preventDefault()} onDrop={() => dragged && updateStatus(dragged, g.status)}><div className="panel-head"><h3>{g.status}</h3><span className={badgeClass(g.status)}>{g.items.length}</span></div><p className="tiny">Drag & Drop zwischen Statusbereichen aktiv</p><div className="grid">{g.items.length ? g.items.map(x => <Card key={x.id} item={x} onEdit={edit} onStatus={updateStatus} draggable onDragStart={() => setDragged(x.id)} />) : <div className="empty">Keine offenen Projekte</div>}</div></div>)}{archived.length > 0 && <div className="panel"><h3>Archiv</h3><div className="grid">{archived.map(x => <Card key={x.id} item={x} onEdit={edit} onStatus={updateStatus}/>)}</div></div>}</div> : tab === 'dashboard' ? <Dashboard active={active} archived={archived}/> : tab === 'kalender' ? <Calendar items={active} edit={edit}/> : tab === 'uploads' ? <Uploads items={items} edit={edit}/> : <Team user={user} items={tab === 'ruben' ? items.filter(x => x.status === 'MONTAGE' || x.lead === 'Ruben') : items}/>}<Modal open={modal} close={() => setModal(false)}><Form form={form} setForm={setForm} save={save} saving={saving} upload={upload} uploading={uploading} pendingFile={pendingFile} setPendingFile={setPendingFile} /></Modal></div></div>
 }
