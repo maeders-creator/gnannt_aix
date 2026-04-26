@@ -132,6 +132,42 @@ function Login({ username, setUsername, password, setPassword, onPlanerLogin, er
   )
 }
 
+function ScreenLogin({ screenUser, setScreenUser, screenPassword, setScreenPassword, onScreenLogin, error }) {
+  return (
+    <div className="screen-login-page">
+      <div className="screen-login-card">
+        <img src="/gnannt-logo.png" alt="Gnannt" className="screen-login-logo" />
+        <h1>Produktionsscreen</h1>
+        <p>Bitte anmelden, um den Hallenmodus zu öffnen.</p>
+
+        <label>Benutzername</label>
+        <input
+          className="input"
+          value={screenUser}
+          onChange={e => setScreenUser(e.target.value)}
+          placeholder="Benutzername eingeben"
+          autoComplete="username"
+        />
+
+        <label>Passwort</label>
+        <input
+          className="input"
+          type="password"
+          value={screenPassword}
+          onChange={e => setScreenPassword(e.target.value)}
+          placeholder="Passwort eingeben"
+          autoComplete="current-password"
+          onKeyDown={e => { if(e.key === 'Enter') onScreenLogin() }}
+        />
+
+        {error && <div className="error">{error}</div>}
+
+        <button className="btn primary full login-submit" onClick={onScreenLogin}>Screen öffnen</button>
+      </div>
+    </div>
+  )
+}
+
 function Modal({ open, close, children }) {
   if (!open) return null
   return <div className="modal-bg"><div className="modal"><button className="close" onClick={close}><X size={18}/></button>{children}</div></div>
@@ -197,6 +233,9 @@ export default function App() {
   const [email, setEmail] = useState('')
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
+  const [screenUser, setScreenUser] = useState('')
+  const [screenPassword, setScreenPassword] = useState('')
+  const [screenUnlocked, setScreenUnlocked] = useState(() => sessionStorage.getItem('gnannt_screen_unlocked') === '1')
   const [localUser, setLocalUser] = useState(null)
   const [loginError, setLoginError] = useState('')
   const [loginInfo, setLoginInfo] = useState('')
@@ -221,6 +260,16 @@ export default function App() {
   const active = filtered.filter(x => x.status !== 'ERLEDIGT')
   const archived = filtered.filter(x => x.status === 'ERLEDIGT')
   const grouped = STATUS_ORDER.map(s => ({ status: s, items: active.filter(x => x.status === s) }))
+  const screenLogin = () => {
+    setLoginError('')
+    if (screenUser.trim() === 'Screen' && screenPassword === 'Produktion') {
+      sessionStorage.setItem('gnannt_screen_unlocked', '1')
+      setScreenUnlocked(true)
+      return
+    }
+    setLoginError('Benutzername oder Passwort ist falsch.')
+  }
+
   const planerLogin = () => {
     setLoginError('')
     setLoginInfo('')
@@ -282,7 +331,8 @@ export default function App() {
   const openBoard = () => { window.location.hash = ''; setTab('planung') }
   const full = async () => { try { if (!document.fullscreenElement) await document.documentElement.requestFullscreen(); else await document.exitFullscreen() } catch {} }
 
+  if (isScreen && !screenUnlocked) return <ScreenLogin screenUser={screenUser} setScreenUser={setScreenUser} screenPassword={screenPassword} setScreenPassword={setScreenPassword} onScreenLogin={screenLogin} error={loginError} />
   if (!user && !isScreen) return <Login username={username} setUsername={setUsername} password={password} setPassword={setPassword} onPlanerLogin={planerLogin} error={loginError} openScreen={openScreen} />
-  if (tab === 'screen') return <div className="screen"><div className="screen-top"><div className="screen-brand"><img src="/gnannt-logo.png" alt="Gnannt" /><div><h1>Gnannt Produktionsplanung</h1><p>Offene Projekte: {active.length}</p></div></div><div className="screen-actions"><span className={connected ? 'live on' : 'live off'}><Cloud size={14}/>{connected ? 'Live verbunden' : 'Offline'}</span><Moon/><Tablet/><button className="btn screenbtn" onClick={openBoard}><Monitor size={16}/> Plantafel</button><button className="btn screenbtn" onClick={full}><Maximize size={16}/> Vollbild</button></div></div><div ref={screenRef} className="screen-scroll">{loading ? <div className="screen-empty">Lade Daten...</div> : active.length ? active.map(x => <Card key={x.id} item={x} compact dark />) : <div className="screen-empty">Keine offenen Projekte.</div>}</div></div>
+  if (tab === 'screen') return <div className="screen"><div className="screen-top"><div className="screen-brand"><img src="/gnannt-logo.png" alt="Gnannt" /><div><h1>Gnannt Produktionsplanung</h1><p>Offene Projekte: {active.length}</p></div></div><div className="screen-actions"><span className={connected ? 'live on' : 'live off'}><Cloud size={14}/>{connected ? 'Live verbunden' : 'Offline'}</span><Moon/><Tablet/><button className="btn screenbtn" onClick={() => { sessionStorage.removeItem('gnannt_screen_unlocked'); setScreenUnlocked(false); setScreenPassword('') }}><LogOut size={16}/> Screen sperren</button><button className="btn screenbtn" onClick={openBoard}><Monitor size={16}/> Plantafel</button><button className="btn screenbtn" onClick={full}><Maximize size={16}/> Vollbild</button></div></div><div ref={screenRef} className="screen-scroll">{loading ? <div className="screen-empty">Lade Daten...</div> : active.length ? active.map(x => <Card key={x.id} item={x} compact dark />) : <div className="screen-empty">Keine offenen Projekte.</div>}</div></div>
   return <div className="app"><div className="shell"><header><div className="board-brand"><img src="/gnannt-logo.png" alt="Gnannt" /><div><h1>Gnannt Produktionsplanung</h1><p>Produktion & Montage</p></div></div><div className="header-actions"><button className="btn outline" onClick={load}><RefreshCw size={16}/> Neu laden</button><button className="btn outline" onClick={openScreen}><Monitor size={16}/> Screen</button><button className="btn outline" onClick={logout}><LogOut size={16}/> Abmelden</button><button className="btn primary" onClick={() => { setForm(EMPTY); setPendingFile(null); setModal(true) }}><Plus size={16}/> Neuer Auftrag</button></div></header><div className="stats stats-two"><div className="stat"><p>Offene Projekte</p><strong>{active.length}</strong></div><div className="stat"><p>Datenstatus</p><span><Cloud size={16}/> {connected ? 'Supabase live verbunden' : 'Keine Live-Verbindung'}</span>{error && <small className="error">{error}</small>}</div></div><div className="toolbar"><div className="search"><Search size={18}/><input value={search} onChange={e => setSearch(e.target.value)} placeholder="Suche nach Projekt, Kunde, Ort oder Verantwortlichem..." /></div><select value={filterLead} onChange={e => setFilterLead(e.target.value)}><option>ALLE</option>{EMPLOYEES.map(x => <option key={x}>{x}</option>)}</select></div><nav>{['planung','dashboard','kalender','uploads','ruben','team'].map(t => <button key={t} className={tab===t ? 'active' : ''} onClick={() => setTab(t)}>{t}</button>)}</nav>{loading ? <div className="panel center">Lade Projekte...</div> : tab === 'planung' ? <div className="stack">{grouped.map(g => <div key={g.status} className="panel" onDragOver={e => e.preventDefault()} onDrop={() => dragged && updateStatus(dragged, g.status)}><div className="panel-head"><h3>{g.status}</h3><span className={badgeClass(g.status)}>{g.items.length}</span></div><p className="tiny">Drag & Drop zwischen Statusbereichen aktiv</p><div className="grid">{g.items.length ? g.items.map(x => <Card key={x.id} item={x} onEdit={edit} onStatus={updateStatus} draggable onDragStart={() => setDragged(x.id)} />) : <div className="empty">Keine offenen Projekte</div>}</div></div>)}{archived.length > 0 && <div className="panel"><h3>Archiv</h3><div className="grid">{archived.map(x => <Card key={x.id} item={x} onEdit={edit} onStatus={updateStatus}/>)}</div></div>}</div> : tab === 'dashboard' ? <Dashboard active={active} archived={archived}/> : tab === 'kalender' ? <Calendar items={active} edit={edit}/> : tab === 'uploads' ? <Uploads items={items} edit={edit}/> : <Team user={user} items={tab === 'ruben' ? items.filter(x => x.status === 'MONTAGE' || x.lead === 'Ruben') : items}/>}<Modal open={modal} close={() => setModal(false)}><Form form={form} setForm={setForm} save={save} saving={saving} upload={upload} uploading={uploading} pendingFile={pendingFile} setPendingFile={setPendingFile} /></Modal></div></div>
 }
