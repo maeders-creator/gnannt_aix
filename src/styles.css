@@ -386,3 +386,6 @@ nav button.active{
   .header-actions{justify-content:flex-start}
   h1{font-size:38px}
 }
+
+.stats.stats-two{grid-template-columns:repeat(2,minmax(0,1fr))}
+@media(max-width:900px){.stats.stats-two{grid-template-columns:1fr}}
