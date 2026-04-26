@@ -1148,3 +1148,21 @@ body {
     }
   }
 }
+
+/* Offline Sync UX */
+.online-pill{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  min-height:42px;
+  padding:9px 12px;
+  border-radius:999px;
+  font-weight:800;
+  font-size:13px;
+  border:1px solid transparent;
+}
+.online-pill.on{color:#166534;background:#dcfce7;border-color:#86efac}
+.online-pill.off{color:#92400e;background:#fef3c7;border-color:#fcd34d}
+@media(max-width:767px){
+  .online-pill{width:100%;min-height:38px;font-size:12px}
+}
