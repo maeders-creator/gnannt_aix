@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createClient } from '@supabase/supabase-js'
-import { CalendarDays, Plus, Search, Hammer, User, MapPin, ClipboardList, Monitor, LockKeyhole, LogOut, Maximize, Paperclip, Bell, Tablet, GripVertical, Moon, RefreshCw, Cloud, BarChart3, Upload, Users, FolderOpen, X } from 'lucide-react'
+import {CalendarDays, Plus, Search, Hammer, User, MapPin, ClipboardList, Monitor, LockKeyhole, LogOut, Maximize, Paperclip, Bell, Tablet, GripVertical, Moon, RefreshCw, Cloud, BarChart3, Upload, Users, FolderOpen, X} from 'lucide-react'
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 'https://zsgvqpikwhawodhvhdeq.supabase.co'
 const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_sDNVYrXK9Zo2AqYo9fEsIw_KvY2YbDo'
@@ -544,12 +544,12 @@ export default function App() {
           setTimeout(() => {
             el.scrollTo({ top: 0, behavior: 'smooth' })
             setTimeout(startAutoScroll, 2500)
-          }, 2200)
+          }, 4500)
           return
         }
 
-        el.scrollBy({ top: 1, behavior: 'auto' })
-      }, 34)
+        el.scrollBy({ top: 0.7, behavior: 'auto' })
+      }, 70)
     }
 
     const pauseAutoScroll = () => {
@@ -557,7 +557,7 @@ export default function App() {
       clearResume()
       autoScrollResumeRef.current = setTimeout(() => {
         startAutoScroll()
-      }, 30000)
+      }, 45000)
     }
 
     startAutoScroll()
@@ -565,6 +565,7 @@ export default function App() {
     el.addEventListener('wheel', pauseAutoScroll, { passive: true })
     el.addEventListener('touchstart', pauseAutoScroll, { passive: true })
     el.addEventListener('pointerdown', pauseAutoScroll)
+    el.addEventListener('mouseenter', pauseAutoScroll)
     el.addEventListener('scroll', () => {}, { passive: true })
 
     autoReloadRef.current = setInterval(() => {
@@ -580,6 +581,7 @@ export default function App() {
       el.removeEventListener('wheel', pauseAutoScroll)
       el.removeEventListener('touchstart', pauseAutoScroll)
       el.removeEventListener('pointerdown', pauseAutoScroll)
+      el.removeEventListener('mouseenter', pauseAutoScroll)
     }
   }, [tab, active.length, items.length])
 
@@ -752,6 +754,22 @@ export default function App() {
   const screenTimeText = now.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })
 
   if (!user && !isScreen) return <Login username={username} setUsername={setUsername} password={password} setPassword={setPassword} onPlanerLogin={planerLogin} error={loginError} openScreen={openScreen} />
-  if (tab === 'screen') return <div className="screen"><div className="screen-top"><div className="screen-brand"><img src="/gnannt-logo.png" alt="Gnannt" /><div><h1>Gnannt Produktionsplanung</h1><p>Offene Projekte: {active.length}</p></div></div><div className="screen-actions"><div className="screen-clock"><strong>{screenDateText}</strong><span>{screenTimeText}</span></div><span className={connected ? 'live on' : 'live off'}><Cloud size={14}/>{connected ? 'Live' : 'Offline'}</span><button className="btn screenbtn icon-only" title="Screen sperren" onClick={() => { sessionStorage.removeItem('gnannt_screen_unlocked'); setScreenUnlocked(false); setScreenPassword('') }}><LogOut size={18}/></button><button className="btn screenbtn icon-only" title="Plantafel" onClick={openBoard}><Monitor size={18}/></button><button className="btn screenbtn icon-only" title="Vollbild" onClick={full}><Maximize size={18}/></button></div></div><div ref={screenRef} className="screen-scroll">{loading ? <div className="screen-empty">Lade Daten...</div> : active.length ? active.map(x => <Card key={x.id} item={x} compact dark />) : <div className="screen-empty">Keine offenen Projekte.</div>}</div></div>
-  return <div className="app"><div className="shell"><header><div className="board-brand"><img src="/gnannt-logo.png" alt="Gnannt" /><div><h1>Gnannt Produktionsplanung</h1><p>Produktion & Montage</p></div></div><div className="header-actions"><span className={online ? 'online-pill on' : 'online-pill off'}>{online ? (syncing ? 'Sync läuft' : 'Online') : 'Offline'}</span><button className="btn outline" onClick={() => { load(); syncQueue() }}><RefreshCw size={16}/> Neu laden</button><button className="btn outline" onClick={openScreen}><Monitor size={16}/> Screen</button><button className="btn outline" onClick={logout}><LogOut size={16}/> Abmelden</button><button className="btn primary" onClick={() => { setForm(EMPTY); setPendingFile(null); setModal(true) }}><Plus size={16}/> Neuer Auftrag</button></div></header><div className="stats stats-two"><div className="stat"><p>Offene Projekte</p><strong>{active.length}</strong></div><div className="stat"><p>Datenstatus</p><span><Cloud size={16}/> {online ? (syncing ? 'Synchronisiere...' : (connected ? 'Supabase live verbunden' : 'Online / Verbindung wird geprüft')) : 'Offline-Modus'}</span>{error && <small className="error">{error}</small>}</div></div><div className="toolbar"><div className="search"><Search size={18}/><input value={search} onChange={e => setSearch(e.target.value)} placeholder="Suche nach Projekt, Kunde, Ort oder Verantwortlichem..." /></div><select value={filterLead} onChange={e => setFilterLead(e.target.value)}><option>ALLE</option>{EMPLOYEES.map(x => <option key={x}>{x}</option>)}</select></div><nav>{['planung','hub','dashboard','kalender','uploads','ruben','team'].map(t => <button key={t} className={tab===t ? 'active' : ''} onClick={() => setTab(t)}>{t}</button>)}</nav>{loading ? <div className="panel center">Lade Projekte...</div> : tab === 'planung' ? <div className="stack">{grouped.map(g => <div key={g.status} className="panel" onDragOver={e => e.preventDefault()} onDrop={() => dragged && updateStatus(dragged, g.status)}><div className="panel-head"><h3>{g.status}</h3><span className={badgeClass(g.status)}>{g.items.length}</span></div><p className="tiny">Drag & Drop zwischen Statusbereichen aktiv</p><div className="grid">{g.items.length ? g.items.map(x => <Card key={x.id} item={x} onEdit={edit} onStatus={updateStatus} draggable onDragStart={() => setDragged(x.id)} />) : <div className="empty">Keine offenen Projekte</div>}</div></div>)}{archived.length > 0 && <div className="panel"><h3>Archiv</h3><div className="grid">{archived.map(x => <Card key={x.id} item={x} onEdit={edit} onStatus={updateStatus}/>)}</div></div>}</div> : tab === 'hub' ? <KnowledgeBaseLive/> : tab === 'dashboard' ? <Dashboard active={active} archived={archived}/> : tab === 'kalender' ? <Calendar items={active} edit={edit}/> : tab === 'uploads' ? <Uploads items={items} edit={edit}/> : <Team user={user} items={tab === 'ruben' ? items.filter(x => x.status === 'MONTAGE' || x.lead === 'Ruben') : items}/>}<Modal open={modal} close={() => setModal(false)}><Form form={form} setForm={setForm} save={save} saving={saving} upload={upload} uploading={uploading} pendingFile={pendingFile} setPendingFile={setPendingFile} /></Modal></div></div>
+  if (tab === 'screen') return <div className="screen"><div className="screen-top"><div className="screen-brand"><img src="/gnannt-logo.png" alt="Gnannt" /><div><h1>Gnannt Produktionsplanung</h1><p>Offene Projekte: {active.length}</p></div></div><div className="screen-actions final-topbar">
+  <div className="screen-clock"><strong>{screenDateText}</strong><span>{screenTimeText}</span></div>
+  <span className="live autoscroll-badge">AutoScroll</span>
+  <span className={connected ? 'live on' : 'live off'}><Cloud size={14}/>{connected ? 'Live' : 'Offline'}</span>
+  <button className="btn screenbtn icon-only" title="Neu laden" onClick={() => { load() }}><RefreshCw size={18}/></button>
+  <button className="btn screenbtn icon-only" title="Plantafel" onClick={openBoard}><Monitor size={18}/></button>
+  <button className="btn screenbtn icon-only" title="Vollbild" onClick={full}><Maximize size={18}/></button>
+  <button className="btn screenbtn icon-only" title="Screen sperren" onClick={() => { sessionStorage.removeItem('gnannt_screen_unlocked'); setScreenUnlocked(false); setScreenPassword('') }}><LogOut size={18}/></button>
+</div><span className={connected ? 'live on' : 'live off'}><Cloud size={14}/>{connected ? 'Live' : 'Offline'}</span><button className="btn screenbtn icon-only" title="Screen sperren" onClick={() => { sessionStorage.removeItem('gnannt_screen_unlocked'); setScreenUnlocked(false); setScreenPassword('') }}><LogOut size={18}/></button><button className="btn screenbtn icon-only" title="Plantafel" onClick={openBoard}><Monitor size={18}/></button><button className="btn screenbtn icon-only" title="Vollbild" onClick={full}><Maximize size={18}/></button></div></div><div ref={screenRef} className="screen-scroll"><div className="screen-v3-grid">
+      <section className="screen-col">
+        <div className="screen-col-head">Produktion / Werkstatt</div>
+        {shownProd.length === 0 ? <div className="screen-empty-small">Keine Produktionseinträge</div> : shownProd.map(item => <Card key={item.id} item={item} screen />)}
+      </section>
+      <section className="screen-col">
+        <div className="screen-col-head">Montage / Monteure</div>
+        {shownMontage.length === 0 ? <div className="screen-empty-small">Keine Montageeinträge</div> : shownMontage.map(item => <Card key={item.id} item={item} screen />)}
+      </section>
+    </div></div></div>)}{archived.length > 0 && <div className="panel"><h3>Archiv</h3><div className="grid">{archived.map(x => <Card key={x.id} item={x} onEdit={edit} onStatus={updateStatus}/>)}</div></div>}</div> : tab === 'hub' ? <KnowledgeBaseLive/> : tab === 'dashboard' ? <Dashboard active={active} archived={archived}/> : tab === 'kalender' ? <Calendar items={active} edit={edit}/> : tab === 'uploads' ? <Uploads items={items} edit={edit}/> : <Team user={user} items={tab === 'ruben' ? items.filter(x => x.status === 'MONTAGE' || x.lead === 'Ruben') : items}/>}<Modal open={modal} close={() => setModal(false)}><Form form={form} setForm={setForm} save={save} saving={saving} upload={upload} uploading={uploading} pendingFile={pendingFile} setPendingFile={setPendingFile} /></Modal></div></div>
 }
