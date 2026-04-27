@@ -66,7 +66,7 @@ function Card({ item, onEdit, onStatus, compact, dark, draggable, onDragStart })
           </div>
           <p>{item.kunde || '-'}</p>
         </div>
-        <div className="badges">
+        <div className="badges"><button className="print-icon-btn" title="Auftrag drucken / PDF" onClick={() => printJobPdf(item)}>🖨️</button>
           <span className={badgeClass(item.status, dark)}>{item.status}</span>
           {!compact && <span className="mini-badge">{item.prioritaet || 'Mittel'}</span>}
         </div>
@@ -84,7 +84,7 @@ function Card({ item, onEdit, onStatus, compact, dark, draggable, onDragStart })
       <div className="note">{item.notiz || '-'}</div>
       {!compact && (
         <div className="card-actions">
-          <button className="btn small outline" onClick={() => onEdit(item)}>Bearbeiten</button><button className="btn small outline" onClick={() => printJobPdf(item)}>PDF</button>
+          <button className="btn small outline print-btn" onClick={() => printJobPdf(item)}>🖨️ PDF</button><button className="btn small outline" onClick={() => onEdit(item)}>Bearbeiten</button><button className="btn small outline" onClick={() => printJobPdf(item)}>PDF</button>
           {ALL_STATUS.map(s => <button className="btn small outline" key={s} onClick={() => onStatus(item.id, s)}>{s === 'AUFMASS' ? 'Aufmaß' : s.charAt(0) + s.slice(1).toLowerCase()}</button>)}
         </div>
       )}
