@@ -139,6 +139,143 @@ function printJobPdf(item) {
   win.document.open(); win.document.write(html); win.document.close()
 }
 
+
+function KnowledgeBaseLive() {
+  const [docs, setDocs] = useState([])
+  const [kbSearch, setKbSearch] = useState('')
+  const [category, setCategory] = useState('ALLE')
+  const [title, setTitle] = useState('')
+  const [docCategory, setDocCategory] = useState('Montage Akademie')
+  const [url, setUrl] = useState('')
+  const [file, setFile] = useState(null)
+  const [kbError, setKbError] = useState('')
+  const [kbLoading, setKbLoading] = useState(false)
+
+  const categories = ['Montage Akademie', 'Sicherheitsunterweisung', 'Aufmaß', 'Dokumente & Videos']
+
+  const loadDocs = async () => {
+    setKbLoading(true)
+    const { data, error } = await supabase
+      .from('knowledge_docs')
+      .select('*')
+      .order('created_at', { ascending: false })
+
+    if (error) {
+      setKbError('Wissensdatenbank konnte nicht geladen werden: ' + error.message)
+      setDocs([])
+    } else {
+      setKbError('')
+      setDocs(data || [])
+    }
+    setKbLoading(false)
+  }
+
+  useEffect(() => { loadDocs() }, [])
+
+  const saveDoc = async () => {
+    if (!title.trim()) {
+      setKbError('Bitte Titel eingeben.')
+      return
+    }
+
+    setKbLoading(true)
+    setKbError('')
+    let finalUrl = url
+
+    if (file) {
+      const ext = file.name.split('.').pop() || 'bin'
+      const safeName = file.name.replace(/[^a-zA-Z0-9_.-]/g, '_')
+      const path = `knowledge/${Date.now()}_${safeName}`
+      const { error: upErr } = await supabase.storage
+        .from('uploads')
+        .upload(path, file, { upsert: true, contentType: file.type || 'application/octet-stream' })
+
+      if (upErr) {
+        setKbError('Upload fehlgeschlagen: ' + upErr.message)
+        setKbLoading(false)
+        return
+      }
+
+      const { data } = supabase.storage.from('uploads').getPublicUrl(path)
+      finalUrl = data.publicUrl
+    }
+
+    const { error } = await supabase.from('knowledge_docs').insert({
+      title,
+      category: docCategory,
+      url: finalUrl,
+      file_name: file?.name || '',
+      type: file ? 'file' : 'link'
+    })
+
+    if (error) {
+      setKbError('Speichern fehlgeschlagen: ' + error.message)
+    } else {
+      setTitle('')
+      setUrl('')
+      setFile(null)
+      await loadDocs()
+    }
+    setKbLoading(false)
+  }
+
+  const filteredDocs = docs.filter(d => {
+    const hay = [d.title, d.category, d.file_name, d.url].join(' ').toLowerCase()
+    return (category === 'ALLE' || d.category === category) && (!kbSearch || hay.includes(kbSearch.toLowerCase()))
+  })
+
+  return (
+    <div className="knowledge-live">
+      <div className="hub-hero">
+        <h2>GNANNT Wissensdatenbank</h2>
+        <p>Montageanleitungen, Videos, Sicherheitsunterweisungen, Aufmaß-Vorlagen und interne Dokumente.</p>
+      </div>
+
+      <div className="kb-layout">
+        <div className="kb-panel">
+          <h3>Neuen Eintrag hinzufügen</h3>
+          <input className="input" placeholder="Titel" value={title} onChange={e => setTitle(e.target.value)} />
+          <select className="input" value={docCategory} onChange={e => setDocCategory(e.target.value)}>
+            {categories.map(c => <option key={c}>{c}</option>)}
+          </select>
+          <input className="input" placeholder="Video-Link oder externe URL optional" value={url} onChange={e => setUrl(e.target.value)} />
+          <input className="input" type="file" accept="application/pdf,video/*,image/*" onChange={e => setFile(e.target.files?.[0] || null)} />
+          {file && <div className="tiny">Datei ausgewählt: {file.name}</div>}
+          {kbError && <div className="error">{kbError}</div>}
+          <button className="btn primary full" onClick={saveDoc} disabled={kbLoading}>{kbLoading ? 'Speichert...' : 'Speichern'}</button>
+        </div>
+
+        <div className="kb-panel">
+          <h3>Dokumente / Videos</h3>
+          <div className="kb-filters">
+            <input className="input" placeholder="Suchen..." value={kbSearch} onChange={e => setKbSearch(e.target.value)} />
+            <select className="input" value={category} onChange={e => setCategory(e.target.value)}>
+              <option>ALLE</option>
+              {categories.map(c => <option key={c}>{c}</option>)}
+            </select>
+          </div>
+
+          {kbLoading && <div className="tiny">Lade Wissensdatenbank...</div>}
+          {!kbLoading && filteredDocs.length === 0 && <div className="empty">Noch keine Einträge vorhanden.</div>}
+
+          <div className="kb-list">
+            {filteredDocs.map(doc => (
+              <div className="kb-item" key={doc.id}>
+                <div>
+                  <strong>{doc.title}</strong>
+                  <p>{doc.category} · {doc.file_name || doc.type || 'Link'}</p>
+                </div>
+                {doc.url && <a className="btn small outline" href={doc.url} target="_blank" rel="noreferrer">Öffnen</a>}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+
 function KnowledgeHubPage() {
   const sections = [
     { title: 'Montage Akademie', icon: '🛠️', text: 'Montageanleitungen, Videos, Checklisten und Standards für Monteure.', items: ['Fenstermontage Holz / Holz-Alu', 'Kunststofffenster Montage', 'Haustüren setzen und einstellen', 'HST Montage', 'Abdichtung innen / außen', 'Quellband und Montagematerial'] },
@@ -336,6 +473,9 @@ export default function App() {
   const [user, setUser] = useState(null)
   const [dragged, setDragged] = useState(null)
   const screenRef = useRef(null)
+  const autoScrollTimerRef = useRef(null)
+  const autoScrollResumeRef = useRef(null)
+  const autoReloadRef = useRef(null)
   const [now, setNow] = useState(new Date())
 
   const isScreen = window.location.hash === PUBLIC_SCREEN_HASH
@@ -371,7 +511,78 @@ export default function App() {
   useEffect(() => { const channel = supabase.channel('projects-live').on('postgres_changes', { event: '*', schema: 'public', table: 'projects' }, () => load()).subscribe(s => setConnected(s === 'SUBSCRIBED')); return () => supabase.removeChannel(channel) }, [])
   useEffect(() => { const onHash = () => { if (window.location.hash === PUBLIC_SCREEN_HASH) setTab('screen') }; window.addEventListener('hashchange', onHash); return () => window.removeEventListener('hashchange', onHash) }, [])
   useEffect(() => { const timer = setInterval(() => setNow(new Date()), 1000); return () => clearInterval(timer) }, [])
-  useEffect(() => { if (tab !== 'screen') return; const el = screenRef.current; if (!el) return; const timer = setInterval(() => { if (el.scrollHeight <= el.clientHeight) return; if (el.scrollTop >= el.scrollHeight - el.clientHeight - 2) el.scrollTop = 0; else el.scrollTop += 1 }, 35); return () => clearInterval(timer) }, [tab, items.length])
+
+  useEffect(() => {
+    if (tab !== 'screen') return
+
+    const el = screenRef.current
+    if (!el) return
+
+    const clearAutoScroll = () => {
+      if (autoScrollTimerRef.current) {
+        clearInterval(autoScrollTimerRef.current)
+        autoScrollTimerRef.current = null
+      }
+    }
+
+    const clearResume = () => {
+      if (autoScrollResumeRef.current) {
+        clearTimeout(autoScrollResumeRef.current)
+        autoScrollResumeRef.current = null
+      }
+    }
+
+    const startAutoScroll = () => {
+      clearAutoScroll()
+      autoScrollTimerRef.current = setInterval(() => {
+        const maxScroll = el.scrollHeight - el.clientHeight
+
+        if (maxScroll <= 8) return
+
+        if (el.scrollTop >= maxScroll - 3) {
+          clearAutoScroll()
+          setTimeout(() => {
+            el.scrollTo({ top: 0, behavior: 'smooth' })
+            setTimeout(startAutoScroll, 2500)
+          }, 2200)
+          return
+        }
+
+        el.scrollBy({ top: 1, behavior: 'auto' })
+      }, 34)
+    }
+
+    const pauseAutoScroll = () => {
+      clearAutoScroll()
+      clearResume()
+      autoScrollResumeRef.current = setTimeout(() => {
+        startAutoScroll()
+      }, 30000)
+    }
+
+    startAutoScroll()
+
+    el.addEventListener('wheel', pauseAutoScroll, { passive: true })
+    el.addEventListener('touchstart', pauseAutoScroll, { passive: true })
+    el.addEventListener('pointerdown', pauseAutoScroll)
+    el.addEventListener('scroll', () => {}, { passive: true })
+
+    autoReloadRef.current = setInterval(() => {
+      if (document.visibilityState === 'visible' && navigator.onLine) {
+        load()
+      }
+    }, 10 * 60 * 1000)
+
+    return () => {
+      clearAutoScroll()
+      clearResume()
+      if (autoReloadRef.current) clearInterval(autoReloadRef.current)
+      el.removeEventListener('wheel', pauseAutoScroll)
+      el.removeEventListener('touchstart', pauseAutoScroll)
+      el.removeEventListener('pointerdown', pauseAutoScroll)
+    }
+  }, [tab, active.length, items.length])
+
 
   const filtered = useMemo(() => items.filter(x => { const text = [x.projekt,x.kunde,x.adresse,x.telefon,x.email_kunde,x.ort,x.gewerk,x.lead,x.status,x.notiz,x.mitarbeiter].join(' ').toLowerCase(); return (!search || text.includes(search.toLowerCase())) && (filterLead === 'ALLE' || x.lead === filterLead) }), [items, search, filterLead])
   const active = filtered.filter(x => x.status !== 'ERLEDIGT')
@@ -542,5 +753,5 @@ export default function App() {
 
   if (!user && !isScreen) return <Login username={username} setUsername={setUsername} password={password} setPassword={setPassword} onPlanerLogin={planerLogin} error={loginError} openScreen={openScreen} />
   if (tab === 'screen') return <div className="screen"><div className="screen-top"><div className="screen-brand"><img src="/gnannt-logo.png" alt="Gnannt" /><div><h1>Gnannt Produktionsplanung</h1><p>Offene Projekte: {active.length}</p></div></div><div className="screen-actions"><div className="screen-clock"><strong>{screenDateText}</strong><span>{screenTimeText}</span></div><span className={connected ? 'live on' : 'live off'}><Cloud size={14}/>{connected ? 'Live' : 'Offline'}</span><button className="btn screenbtn icon-only" title="Screen sperren" onClick={() => { sessionStorage.removeItem('gnannt_screen_unlocked'); setScreenUnlocked(false); setScreenPassword('') }}><LogOut size={18}/></button><button className="btn screenbtn icon-only" title="Plantafel" onClick={openBoard}><Monitor size={18}/></button><button className="btn screenbtn icon-only" title="Vollbild" onClick={full}><Maximize size={18}/></button></div></div><div ref={screenRef} className="screen-scroll">{loading ? <div className="screen-empty">Lade Daten...</div> : active.length ? active.map(x => <Card key={x.id} item={x} compact dark />) : <div className="screen-empty">Keine offenen Projekte.</div>}</div></div>
-  return <div className="app"><div className="shell"><header><div className="board-brand"><img src="/gnannt-logo.png" alt="Gnannt" /><div><h1>Gnannt Produktionsplanung</h1><p>Produktion & Montage</p></div></div><div className="header-actions"><span className={online ? 'online-pill on' : 'online-pill off'}>{online ? (syncing ? 'Sync läuft' : 'Online') : 'Offline'}</span><button className="btn outline" onClick={() => { load(); syncQueue() }}><RefreshCw size={16}/> Neu laden</button><button className="btn outline" onClick={openScreen}><Monitor size={16}/> Screen</button><button className="btn outline" onClick={logout}><LogOut size={16}/> Abmelden</button><button className="btn primary" onClick={() => { setForm(EMPTY); setPendingFile(null); setModal(true) }}><Plus size={16}/> Neuer Auftrag</button></div></header><div className="stats stats-two"><div className="stat"><p>Offene Projekte</p><strong>{active.length}</strong></div><div className="stat"><p>Datenstatus</p><span><Cloud size={16}/> {online ? (syncing ? 'Synchronisiere...' : (connected ? 'Supabase live verbunden' : 'Online / Verbindung wird geprüft')) : 'Offline-Modus'}</span>{error && <small className="error">{error}</small>}</div></div><div className="toolbar"><div className="search"><Search size={18}/><input value={search} onChange={e => setSearch(e.target.value)} placeholder="Suche nach Projekt, Kunde, Ort oder Verantwortlichem..." /></div><select value={filterLead} onChange={e => setFilterLead(e.target.value)}><option>ALLE</option>{EMPLOYEES.map(x => <option key={x}>{x}</option>)}</select></div><nav>{['planung','hub','dashboard','kalender','uploads','ruben','team'].map(t => <button key={t} className={tab===t ? 'active' : ''} onClick={() => setTab(t)}>{t}</button>)}</nav>{loading ? <div className="panel center">Lade Projekte...</div> : tab === 'planung' ? <div className="stack">{grouped.map(g => <div key={g.status} className="panel" onDragOver={e => e.preventDefault()} onDrop={() => dragged && updateStatus(dragged, g.status)}><div className="panel-head"><h3>{g.status}</h3><span className={badgeClass(g.status)}>{g.items.length}</span></div><p className="tiny">Drag & Drop zwischen Statusbereichen aktiv</p><div className="grid">{g.items.length ? g.items.map(x => <Card key={x.id} item={x} onEdit={edit} onStatus={updateStatus} draggable onDragStart={() => setDragged(x.id)} />) : <div className="empty">Keine offenen Projekte</div>}</div></div>)}{archived.length > 0 && <div className="panel"><h3>Archiv</h3><div className="grid">{archived.map(x => <Card key={x.id} item={x} onEdit={edit} onStatus={updateStatus}/>)}</div></div>}</div> : tab === 'hub' ? <KnowledgeHubPage/> : tab === 'dashboard' ? <Dashboard active={active} archived={archived}/> : tab === 'kalender' ? <Calendar items={active} edit={edit}/> : tab === 'uploads' ? <Uploads items={items} edit={edit}/> : <Team user={user} items={tab === 'ruben' ? items.filter(x => x.status === 'MONTAGE' || x.lead === 'Ruben') : items}/>}<Modal open={modal} close={() => setModal(false)}><Form form={form} setForm={setForm} save={save} saving={saving} upload={upload} uploading={uploading} pendingFile={pendingFile} setPendingFile={setPendingFile} /></Modal></div></div>
+  return <div className="app"><div className="shell"><header><div className="board-brand"><img src="/gnannt-logo.png" alt="Gnannt" /><div><h1>Gnannt Produktionsplanung</h1><p>Produktion & Montage</p></div></div><div className="header-actions"><span className={online ? 'online-pill on' : 'online-pill off'}>{online ? (syncing ? 'Sync läuft' : 'Online') : 'Offline'}</span><button className="btn outline" onClick={() => { load(); syncQueue() }}><RefreshCw size={16}/> Neu laden</button><button className="btn outline" onClick={openScreen}><Monitor size={16}/> Screen</button><button className="btn outline" onClick={logout}><LogOut size={16}/> Abmelden</button><button className="btn primary" onClick={() => { setForm(EMPTY); setPendingFile(null); setModal(true) }}><Plus size={16}/> Neuer Auftrag</button></div></header><div className="stats stats-two"><div className="stat"><p>Offene Projekte</p><strong>{active.length}</strong></div><div className="stat"><p>Datenstatus</p><span><Cloud size={16}/> {online ? (syncing ? 'Synchronisiere...' : (connected ? 'Supabase live verbunden' : 'Online / Verbindung wird geprüft')) : 'Offline-Modus'}</span>{error && <small className="error">{error}</small>}</div></div><div className="toolbar"><div className="search"><Search size={18}/><input value={search} onChange={e => setSearch(e.target.value)} placeholder="Suche nach Projekt, Kunde, Ort oder Verantwortlichem..." /></div><select value={filterLead} onChange={e => setFilterLead(e.target.value)}><option>ALLE</option>{EMPLOYEES.map(x => <option key={x}>{x}</option>)}</select></div><nav>{['planung','hub','dashboard','kalender','uploads','ruben','team'].map(t => <button key={t} className={tab===t ? 'active' : ''} onClick={() => setTab(t)}>{t}</button>)}</nav>{loading ? <div className="panel center">Lade Projekte...</div> : tab === 'planung' ? <div className="stack">{grouped.map(g => <div key={g.status} className="panel" onDragOver={e => e.preventDefault()} onDrop={() => dragged && updateStatus(dragged, g.status)}><div className="panel-head"><h3>{g.status}</h3><span className={badgeClass(g.status)}>{g.items.length}</span></div><p className="tiny">Drag & Drop zwischen Statusbereichen aktiv</p><div className="grid">{g.items.length ? g.items.map(x => <Card key={x.id} item={x} onEdit={edit} onStatus={updateStatus} draggable onDragStart={() => setDragged(x.id)} />) : <div className="empty">Keine offenen Projekte</div>}</div></div>)}{archived.length > 0 && <div className="panel"><h3>Archiv</h3><div className="grid">{archived.map(x => <Card key={x.id} item={x} onEdit={edit} onStatus={updateStatus}/>)}</div></div>}</div> : tab === 'hub' ? <KnowledgeBaseLive/> : tab === 'dashboard' ? <Dashboard active={active} archived={archived}/> : tab === 'kalender' ? <Calendar items={active} edit={edit}/> : tab === 'uploads' ? <Uploads items={items} edit={edit}/> : <Team user={user} items={tab === 'ruben' ? items.filter(x => x.status === 'MONTAGE' || x.lead === 'Ruben') : items}/>}<Modal open={modal} close={() => setModal(false)}><Form form={form} setForm={setForm} save={save} saving={saving} upload={upload} uploading={uploading} pendingFile={pendingFile} setPendingFile={setPendingFile} /></Modal></div></div>
 }
