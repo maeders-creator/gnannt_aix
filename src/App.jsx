@@ -115,6 +115,19 @@ function toDbProject(form) {
   }
 }
 
+
+function formatDateDE(value) {
+  if (!value) return '-'
+  const d = new Date(value)
+  if (Number.isNaN(d.getTime())) return String(value)
+  return d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })
+}
+
+function formatDateLongDE(value) {
+  const d = value ? new Date(value) : new Date()
+  return d.toLocaleDateString('de-DE', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' })
+}
+
 function printJobPdf(item) {
   const esc = (v) => String(v || '-').replace(/[&<>"']/g, (m) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]))
   const win = window.open('', '_blank')
@@ -129,7 +142,7 @@ function printJobPdf(item) {
   <tr><td>Adresse / Baustelle</td><td>${esc(item.adresse || item.ort)}</td></tr>
   <tr><td>Telefon</td><td>${esc(item.telefon)}</td></tr>
   <tr><td>E-Mail</td><td>${esc(item.email_kunde)}</td></tr>
-  <tr><td>Termin</td><td>${esc(item.termin)}</td></tr>
+  <tr><td>Termin</td><td>${esc(formatDateDE(item.termin))}</td></tr>
   <tr><td>Verantwortlich</td><td>${esc(item.lead)}</td></tr>
   <tr><td>Mitarbeiter / Team</td><td>${esc(item.mitarbeiter)}</td></tr>
   <tr><td>Status</td><td>${esc(item.status)}</td></tr>
@@ -138,6 +151,146 @@ function printJobPdf(item) {
   </table><div class="footer"><div><div class="sign">Montage / Produktion</div></div><div><div class="sign">Kontrolle / Freigabe</div></div></div><div class="actions">Über den Druckdialog kann dieser Auftrag als PDF gespeichert oder ausgedruckt werden.</div><script>window.onload=()=>setTimeout(()=>window.print(),300)</script></body></html>`
   win.document.open(); win.document.write(html); win.document.close()
 }
+
+
+function KnowledgeBaseLive() {
+  const [docs, setDocs] = useState([])
+  const [kbSearch, setKbSearch] = useState('')
+  const [category, setCategory] = useState('ALLE')
+  const [title, setTitle] = useState('')
+  const [docCategory, setDocCategory] = useState('Montage Akademie')
+  const [url, setUrl] = useState('')
+  const [file, setFile] = useState(null)
+  const [kbError, setKbError] = useState('')
+  const [kbLoading, setKbLoading] = useState(false)
+
+  const categories = ['Montage Akademie', 'Sicherheitsunterweisung', 'Aufmaß', 'Dokumente & Videos']
+
+  const loadDocs = async () => {
+    setKbLoading(true)
+    const { data, error } = await supabase
+      .from('knowledge_docs')
+      .select('*')
+      .order('created_at', { ascending: false })
+
+    if (error) {
+      setKbError('Wissensdatenbank konnte nicht geladen werden: ' + error.message)
+      setDocs([])
+    } else {
+      setKbError('')
+      setDocs(data || [])
+    }
+    setKbLoading(false)
+  }
+
+  useEffect(() => { loadDocs() }, [])
+
+  const saveDoc = async () => {
+    if (!title.trim()) {
+      setKbError('Bitte Titel eingeben.')
+      return
+    }
+
+    setKbLoading(true)
+    setKbError('')
+    let finalUrl = url
+    let finalFileName = ''
+
+    if (file) {
+      const safeName = file.name.replace(/[^a-zA-Z0-9_.-]/g, '_')
+      const path = `knowledge/${Date.now()}_${safeName}`
+
+      const { error: upErr } = await supabase.storage
+        .from('uploads')
+        .upload(path, file, { upsert: true, contentType: file.type || 'application/octet-stream' })
+
+      if (upErr) {
+        setKbError('Upload fehlgeschlagen: ' + upErr.message)
+        setKbLoading(false)
+        return
+      }
+
+      const { data } = supabase.storage.from('uploads').getPublicUrl(path)
+      finalUrl = data.publicUrl
+      finalFileName = file.name
+    }
+
+    const { error } = await supabase.from('knowledge_docs').insert({
+      title,
+      category: docCategory,
+      type: file ? 'file' : 'link',
+      file_name: finalFileName,
+      url: finalUrl
+    })
+
+    if (error) {
+      setKbError('Speichern fehlgeschlagen: ' + error.message)
+    } else {
+      setTitle('')
+      setUrl('')
+      setFile(null)
+      await loadDocs()
+    }
+
+    setKbLoading(false)
+  }
+
+  const filteredDocs = docs.filter(d => {
+    const hay = [d.title, d.category, d.file_name, d.url].join(' ').toLowerCase()
+    return (category === 'ALLE' || d.category === category) && (!kbSearch || hay.includes(kbSearch.toLowerCase()))
+  })
+
+  return (
+    <div className="knowledge-live">
+      <div className="hub-hero">
+        <h2>GNANNT Wissensdatenbank</h2>
+        <p>Montageanleitungen, Videos, Sicherheitsunterweisungen, Aufmaß-Vorlagen und interne Dokumente.</p>
+      </div>
+
+      <div className="kb-layout">
+        <div className="kb-panel">
+          <h3>Neuen Eintrag hinzufügen</h3>
+          <input className="input" placeholder="Titel" value={title} onChange={e => setTitle(e.target.value)} />
+          <select className="input" value={docCategory} onChange={e => setDocCategory(e.target.value)}>
+            {categories.map(c => <option key={c}>{c}</option>)}
+          </select>
+          <input className="input" placeholder="Video-Link oder externe URL optional" value={url} onChange={e => setUrl(e.target.value)} />
+          <input className="input" type="file" accept="application/pdf,video/*,image/*" onChange={e => setFile(e.target.files?.[0] || null)} />
+          {file && <div className="tiny">Datei ausgewählt: {file.name}</div>}
+          {kbError && <div className="error">{kbError}</div>}
+          <button className="btn primary full" onClick={saveDoc} disabled={kbLoading}>{kbLoading ? 'Speichert...' : 'Speichern'}</button>
+        </div>
+
+        <div className="kb-panel">
+          <h3>Dokumente / Videos</h3>
+          <div className="kb-filters">
+            <input className="input" placeholder="Suchen..." value={kbSearch} onChange={e => setKbSearch(e.target.value)} />
+            <select className="input" value={category} onChange={e => setCategory(e.target.value)}>
+              <option>ALLE</option>
+              {categories.map(c => <option key={c}>{c}</option>)}
+            </select>
+          </div>
+
+          {kbLoading && <div className="tiny">Lade Wissensdatenbank...</div>}
+          {!kbLoading && filteredDocs.length === 0 && <div className="empty">Noch keine Einträge vorhanden.</div>}
+
+          <div className="kb-list">
+            {filteredDocs.map(doc => (
+              <div className="kb-item" key={doc.id}>
+                <div>
+                  <strong>{doc.title}</strong>
+                  <p>{doc.category} · {formatDateDE(doc.created_at)} · {doc.file_name || doc.type || 'Link'}</p>
+                </div>
+                {doc.url && <a className="btn small outline" href={doc.url} target="_blank" rel="noreferrer">Öffnen</a>}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 
 function KnowledgeHubPage() {
   const sections = [
@@ -323,7 +476,7 @@ function ScreenJobCard({ item }) {
       <div className="screen-job-meta">
         <span>{item.status || '-'}</span>
         <span>{item.lead || '-'}</span>
-        {item.termin && <span>{item.termin}</span>}
+        {item.termin && <span>{formatDateDE(item.termin)}</span>}
         {item.mitarbeiter && <span>{item.mitarbeiter}</span>}
       </div>
       {item.notiz && <div className="screen-job-note">{item.notiz}</div>}
@@ -438,24 +591,32 @@ export default function App() {
           clearAutoScroll()
           setTimeout(() => {
             el.scrollTo({ top: 0, behavior: 'smooth' })
-            setTimeout(startAutoScroll, 4500)
-          }, 4500)
+            setTimeout(startAutoScroll, 7000)
+          }, 7000)
           return
         }
-        el.scrollBy({ top: 1, behavior: 'auto' })
-      }, 85)
+        el.scrollBy({ top: 0.55, behavior: 'auto' })
+      }, 160)
     }
     const pauseAutoScroll = () => {
       clearAutoScroll()
       clearResume()
-      autoScrollResumeRef.current = setTimeout(startAutoScroll, 45000)
+      autoScrollResumeRef.current = setTimeout(startAutoScroll, 90000)
     }
 
     startAutoScroll()
-    el.addEventListener('wheel', pauseAutoScroll, { passive: true })
-    el.addEventListener('touchstart', pauseAutoScroll, { passive: true })
-    el.addEventListener('pointerdown', pauseAutoScroll)
 
+    const globalPauseTargets = [el, window, document]
+    globalPauseTargets.forEach(target => {
+      target.addEventListener('wheel', pauseAutoScroll, { passive: true })
+      target.addEventListener('touchstart', pauseAutoScroll, { passive: true })
+      target.addEventListener('touchmove', pauseAutoScroll, { passive: true })
+      target.addEventListener('pointerdown', pauseAutoScroll)
+      target.addEventListener('mousedown', pauseAutoScroll)
+      target.addEventListener('keydown', pauseAutoScroll)
+    })
+
+    el.addEventListener('wheel', pauseAutoScroll, { passive: true })
     autoReloadRef.current = setInterval(() => {
       if (document.visibilityState === 'visible' && navigator.onLine) load()
     }, 10 * 60 * 1000)
@@ -464,9 +625,14 @@ export default function App() {
       clearAutoScroll()
       clearResume()
       if (autoReloadRef.current) clearInterval(autoReloadRef.current)
-      el.removeEventListener('wheel', pauseAutoScroll)
-      el.removeEventListener('touchstart', pauseAutoScroll)
-      el.removeEventListener('pointerdown', pauseAutoScroll)
+      globalPauseTargets.forEach(target => {
+        target.removeEventListener('wheel', pauseAutoScroll)
+        target.removeEventListener('touchstart', pauseAutoScroll)
+        target.removeEventListener('touchmove', pauseAutoScroll)
+        target.removeEventListener('pointerdown', pauseAutoScroll)
+        target.removeEventListener('mousedown', pauseAutoScroll)
+        target.removeEventListener('keydown', pauseAutoScroll)
+      })
     }
   }, [tab, items.length])
 
@@ -636,7 +802,7 @@ export default function App() {
   const full = async () => { try { if (!document.fullscreenElement) await document.documentElement.requestFullscreen(); else await document.exitFullscreen() } catch {} }
 
   if (isScreen && !screenUnlocked) return <ScreenLogin screenUser={screenUser} setScreenUser={setScreenUser} screenPassword={screenPassword} setScreenPassword={setScreenPassword} onScreenLogin={screenLogin} error={loginError} />
-  const screenDateText = now.toLocaleDateString('de-DE', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' })
+  const screenDateText = formatDateLongDE(now)
   const screenTimeText = now.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })
   const montageItems = active.filter(x => ['MONTAGE','UNTERWEGS','SERVICE','BAUSTELLE'].includes(String(x.status || '').toUpperCase()) || String(x.lead || '').toUpperCase().includes('RUBEN'))
   const prodItems = active.filter(x => !montageItems.some(m => String(m.id) === String(x.id)))
@@ -687,5 +853,5 @@ export default function App() {
     </div>
   )
 
-  return <div className="app"><div className="shell"><header><div className="board-brand"><img src="/gnannt-logo.png" alt="Gnannt" /><div><h1>Gnannt Produktionsplanung</h1><p>Produktion & Montage</p></div></div><div className="header-actions"><span className={online ? 'online-pill on' : 'online-pill off'}>{online ? (syncing ? 'Sync läuft' : 'Online') : 'Offline'}</span><button className="btn outline" onClick={() => { load(); syncQueue() }}><RefreshCw size={16}/> Neu laden</button><button className="btn outline" onClick={openScreen}><Monitor size={16}/> Screen</button><button className="btn outline" onClick={logout}><LogOut size={16}/> Abmelden</button><button className="btn primary" onClick={() => { setForm(EMPTY); setPendingFile(null); setModal(true) }}><Plus size={16}/> Neuer Auftrag</button></div></header><div className="stats stats-two"><div className="stat"><p>Offene Projekte</p><strong>{active.length}</strong></div><div className="stat"><p>Datenstatus</p><span><Cloud size={16}/> {online ? (syncing ? 'Synchronisiere...' : (connected ? 'Supabase live verbunden' : 'Online / Verbindung wird geprüft')) : 'Offline-Modus'}</span>{error && <small className="error">{error}</small>}</div></div><div className="toolbar"><div className="search"><Search size={18}/><input value={search} onChange={e => setSearch(e.target.value)} placeholder="Suche nach Projekt, Kunde, Ort oder Verantwortlichem..." /></div><select value={filterLead} onChange={e => setFilterLead(e.target.value)}><option>ALLE</option>{EMPLOYEES.map(x => <option key={x}>{x}</option>)}</select></div><nav>{['planung','hub','dashboard','kalender','uploads','ruben','team'].map(t => <button key={t} className={tab===t ? 'active' : ''} onClick={() => setTab(t)}>{t}</button>)}</nav>{loading ? <div className="panel center">Lade Projekte...</div> : tab === 'planung' ? <div className="stack">{grouped.map(g => <div key={g.status} className="panel" onDragOver={e => e.preventDefault()} onDrop={() => dragged && updateStatus(dragged, g.status)}><div className="panel-head"><h3>{g.status}</h3><span className={badgeClass(g.status)}>{g.items.length}</span></div><p className="tiny">Drag & Drop zwischen Statusbereichen aktiv</p><div className="grid">{g.items.length ? g.items.map(x => <Card key={x.id} item={x} onEdit={edit} onStatus={updateStatus} draggable onDragStart={() => setDragged(x.id)} />) : <div className="empty">Keine offenen Projekte</div>}</div></div>)}{archived.length > 0 && <div className="panel"><h3>Archiv</h3><div className="grid">{archived.map(x => <Card key={x.id} item={x} onEdit={edit} onStatus={updateStatus}/>)}</div></div>}</div> : tab === 'hub' ? <KnowledgeHubPage/> : tab === 'dashboard' ? <Dashboard active={active} archived={archived}/> : tab === 'kalender' ? <Calendar items={active} edit={edit}/> : tab === 'uploads' ? <Uploads items={items} edit={edit}/> : <Team user={user} items={tab === 'ruben' ? items.filter(x => x.status === 'MONTAGE' || x.lead === 'Ruben') : items}/>}<Modal open={modal} close={() => setModal(false)}><Form form={form} setForm={setForm} save={save} saving={saving} upload={upload} uploading={uploading} pendingFile={pendingFile} setPendingFile={setPendingFile} /></Modal></div></div>
+  return <div className="app"><div className="shell"><header><div className="board-brand"><img src="/gnannt-logo.png" alt="Gnannt" /><div><h1>Gnannt Produktionsplanung</h1><p>Produktion & Montage</p></div></div><div className="header-actions"><span className={online ? 'online-pill on' : 'online-pill off'}>{online ? (syncing ? 'Sync läuft' : 'Online') : 'Offline'}</span><button className="btn outline" onClick={() => { load(); syncQueue() }}><RefreshCw size={16}/> Neu laden</button><button className="btn outline" onClick={openScreen}><Monitor size={16}/> Screen</button><button className="btn outline" onClick={logout}><LogOut size={16}/> Abmelden</button><button className="btn primary" onClick={() => { setForm(EMPTY); setPendingFile(null); setModal(true) }}><Plus size={16}/> Neuer Auftrag</button></div></header><div className="stats stats-two"><div className="stat"><p>Offene Projekte</p><strong>{active.length}</strong></div><div className="stat"><p>Datenstatus</p><span><Cloud size={16}/> {online ? (syncing ? 'Synchronisiere...' : (connected ? 'Supabase live verbunden' : 'Online / Verbindung wird geprüft')) : 'Offline-Modus'}</span>{error && <small className="error">{error}</small>}</div></div><div className="toolbar"><div className="search"><Search size={18}/><input value={search} onChange={e => setSearch(e.target.value)} placeholder="Suche nach Projekt, Kunde, Ort oder Verantwortlichem..." /></div><select value={filterLead} onChange={e => setFilterLead(e.target.value)}><option>ALLE</option>{EMPLOYEES.map(x => <option key={x}>{x}</option>)}</select></div><nav>{['planung','hub','dashboard','kalender','uploads','ruben','team'].map(t => <button key={t} className={tab===t ? 'active' : ''} onClick={() => setTab(t)}>{t}</button>)}</nav>{loading ? <div className="panel center">Lade Projekte...</div> : tab === 'planung' ? <div className="stack">{grouped.map(g => <div key={g.status} className="panel" onDragOver={e => e.preventDefault()} onDrop={() => dragged && updateStatus(dragged, g.status)}><div className="panel-head"><h3>{g.status}</h3><span className={badgeClass(g.status)}>{g.items.length}</span></div><p className="tiny">Drag & Drop zwischen Statusbereichen aktiv</p><div className="grid">{g.items.length ? g.items.map(x => <Card key={x.id} item={x} onEdit={edit} onStatus={updateStatus} draggable onDragStart={() => setDragged(x.id)} />) : <div className="empty">Keine offenen Projekte</div>}</div></div>)}{archived.length > 0 && <div className="panel"><h3>Archiv</h3><div className="grid">{archived.map(x => <Card key={x.id} item={x} onEdit={edit} onStatus={updateStatus}/>)}</div></div>}</div> : tab === 'hub' ? <KnowledgeBaseLive/> : tab === 'dashboard' ? <Dashboard active={active} archived={archived}/> : tab === 'kalender' ? <Calendar items={active} edit={edit}/> : tab === 'uploads' ? <Uploads items={items} edit={edit}/> : <Team user={user} items={tab === 'ruben' ? items.filter(x => x.status === 'MONTAGE' || x.lead === 'Ruben') : items}/>}<Modal open={modal} close={() => setModal(false)}><Form form={form} setForm={setForm} save={save} saving={saving} upload={upload} uploading={uploading} pendingFile={pendingFile} setPendingFile={setPendingFile} /></Modal></div></div>
 }
