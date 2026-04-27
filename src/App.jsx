@@ -45,7 +45,7 @@ const PUBLIC_SCREEN_HASH = '#screen'
 const STORAGE_BUCKET = 'uploads'
 const STATUS_ORDER = ['AUFMASS', 'KONSTRUKTION', 'PRODUKTION', 'MONTAGE']
 const ALL_STATUS = ['AUFMASS', 'KONSTRUKTION', 'PRODUKTION', 'MONTAGE', 'ERLEDIGT']
-const EMPLOYEES = ['Ruben', 'Edmund', 'Gerold', 'Samuel', 'Jonathan', 'Ali', 'Waldemar']
+const EMPLOYEES = ['Ruben', 'Edmund', 'Gerold', 'Samuel', 'Jonathan', 'Waldemar']
 
 const EMPTY = { id: null, projekt: '', kunde: '', ort: '', adresse: '', telefon: '', email_kunde: '', gewerk: '', lead: 'Edmund', mitarbeiter: '', status: 'AUFMASS', termin: '', prioritaet: 'Mittel', notiz: '', attachment_name: '', attachment_url: '', push_enabled: false }
 
@@ -84,12 +84,69 @@ function Card({ item, onEdit, onStatus, compact, dark, draggable, onDragStart })
       <div className="note">{item.notiz || '-'}</div>
       {!compact && (
         <div className="card-actions">
-          <button className="btn small outline" onClick={() => onEdit(item)}>Bearbeiten</button>
+          <button className="btn small outline" onClick={() => onEdit(item)}>Bearbeiten</button><button className="btn small outline" onClick={() => printJobPdf(item)}>PDF</button>
           {ALL_STATUS.map(s => <button className="btn small outline" key={s} onClick={() => onStatus(item.id, s)}>{s === 'AUFMASS' ? 'Aufmaß' : s.charAt(0) + s.slice(1).toLowerCase()}</button>)}
         </div>
       )}
     </div>
   )
+}
+
+
+
+function toDbProject(form) {
+  return {
+    projekt: form.projekt || '',
+    kunde: form.kunde || '',
+    adresse: form.adresse || '',
+    ort: form.ort || '',
+    telefon: form.telefon || '',
+    email_kunde: form.email_kunde || '',
+    gewerk: form.gewerk || '',
+    lead: form.lead || '',
+    mitarbeiter: form.mitarbeiter || '',
+    status: form.status || 'AUFMASS',
+    termin: form.termin || null,
+    prioritaet: form.prioritaet || 'Mittel',
+    notiz: form.notiz || '',
+    attachment_name: form.attachment_name || '',
+    attachment_url: form.attachment_url || '',
+    push_enabled: !!form.push_enabled
+  }
+}
+
+function printJobPdf(item) {
+  const esc = (v) => String(v || '-').replace(/[&<>"']/g, (m) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]))
+  const win = window.open('', '_blank')
+  if (!win) return
+  const html = `<!doctype html><html lang="de"><head><meta charset="utf-8"/><title>Auftrag ${esc(item.projekt)}</title><style>
+  @page{size:A4;margin:16mm}body{font-family:Arial,sans-serif;color:#111827}.head{display:flex;justify-content:space-between;border-bottom:2px solid #111827;padding-bottom:12px;margin-bottom:18px}.logo{font-size:24px;font-weight:800}.sub{color:#6b7280;font-size:12px}h1{font-size:22px;margin:0 0 4px}.badge{display:inline-block;padding:5px 10px;border-radius:999px;background:#eef2ff;color:#3730a3;font-weight:700;font-size:12px}table{width:100%;border-collapse:collapse;margin-top:16px}td{border:1px solid #d1d5db;padding:9px 10px;vertical-align:top;font-size:13px}td:first-child{width:32%;background:#f9fafb;font-weight:700}.note{min-height:100px;white-space:pre-wrap}.footer{margin-top:28px;display:grid;grid-template-columns:1fr 1fr;gap:24px;font-size:12px}.sign{border-top:1px solid #111827;padding-top:6px;margin-top:38px}.actions{margin-top:18px;font-size:12px;color:#6b7280}@media print{.actions{display:none}}
+  </style></head><body>
+  <div class="head"><div><div class="logo">Gnannt GmbH</div><div class="sub">Produktionsplanung · Montage · Aufmaß</div></div><div style="text-align:right"><h1>Auftrag / Job Sheet</h1><div class="sub">${new Date().toLocaleDateString('de-DE')}</div></div></div>
+  <span class="badge">${esc(item.status)}</span><h1 style="margin-top:12px">${esc(item.projekt)}</h1><div class="sub">${esc(item.kunde)} · ${esc(item.ort)}</div>
+  <table>
+  <tr><td>Kunde</td><td>${esc(item.kunde)}</td></tr>
+  <tr><td>Adresse / Baustelle</td><td>${esc(item.adresse || item.ort)}</td></tr>
+  <tr><td>Telefon</td><td>${esc(item.telefon)}</td></tr>
+  <tr><td>E-Mail</td><td>${esc(item.email_kunde)}</td></tr>
+  <tr><td>Termin</td><td>${esc(item.termin)}</td></tr>
+  <tr><td>Verantwortlich</td><td>${esc(item.lead)}</td></tr>
+  <tr><td>Mitarbeiter / Team</td><td>${esc(item.mitarbeiter)}</td></tr>
+  <tr><td>Status</td><td>${esc(item.status)}</td></tr>
+  <tr><td>PDF / Anhang</td><td>${esc(item.attachment_name)}</td></tr>
+  <tr><td>Notiz / Besonderheiten</td><td class="note">${esc(item.notiz)}</td></tr>
+  </table><div class="footer"><div><div class="sign">Montage / Produktion</div></div><div><div class="sign">Kontrolle / Freigabe</div></div></div><div class="actions">Über den Druckdialog kann dieser Auftrag als PDF gespeichert oder ausgedruckt werden.</div><script>window.onload=()=>setTimeout(()=>window.print(),300)</script></body></html>`
+  win.document.open(); win.document.write(html); win.document.close()
+}
+
+function KnowledgeHubPage() {
+  const sections = [
+    { title: 'Montage Akademie', icon: '🛠️', text: 'Montageanleitungen, Videos, Checklisten und Standards für Monteure.', items: ['Fenstermontage Holz / Holz-Alu', 'Kunststofffenster Montage', 'Haustüren setzen und einstellen', 'HST Montage', 'Abdichtung innen / außen', 'Quellband und Montagematerial'] },
+    { title: 'Sicherheitsunterweisung', icon: '🦺', text: 'Jährliche Unterweisungen, Baustellensicherheit, Maschinen, PSA und Nachweise.', items: ['PSA Pflicht', 'Leitern und Gerüste', 'Stapler / Transport', 'Maschinensicherheit', 'Gefahrstoffe', 'Unterweisungsnachweis'] },
+    { title: 'Aufmaß', icon: '📏', text: 'Digitales Aufmaß, Fotos, PDF-Aufmaßblätter und Freigabeprozess.', items: ['Neues Aufmaß erfassen', 'Fotos zur Baustelle', 'Fenster / Tür / HST Felder', 'Kontrolle Ruben / Edmund', 'Produktionsfreigabe', 'PDF-Aufmaß exportieren'] },
+    { title: 'Dokumente & Videos', icon: '📚', text: 'Zentrale Ablage für PDFs, Einbauvideos, Herstellerinformationen und interne Standards.', items: ['PDF Upload', 'Video Links', 'Montage Checklisten', 'Werkzeuglisten', 'Reklamationsvermeidung', 'Schulung neuer Mitarbeiter'] },
+  ]
+  return <div className="hub-page"><div className="hub-hero"><h2>GNANNT HUB</h2><p>Interne Plattform für Produktionsplanung, Montagewissen, Sicherheitsunterweisung und Aufmaß.</p></div><div className="hub-grid">{sections.map(s=><div className="hub-card" key={s.title}><div className="hub-icon">{s.icon}</div><h3>{s.title}</h3><p>{s.text}</p><ul>{s.items.map(i=><li key={i}>{i}</li>)}</ul></div>)}</div></div>
 }
 
 function Login({ username, setUsername, password, setPassword, onPlanerLogin, error, openScreen }) {
@@ -284,28 +341,19 @@ export default function App() {
   const isScreen = window.location.hash === PUBLIC_SCREEN_HASH
   const load = async () => {
     setLoading(true)
-    const cached = readCache()
-    if (cached.length) setItems(cached)
+    const { data, error } = await supabase
+      .from('projects')
+      .select('*')
+      .order('created_at', { ascending: false })
 
-    if (!navigator.onLine) {
-      setOnline(false)
-      setConnected(false)
-      setError('Offline-Modus aktiv. Änderungen werden später synchronisiert.')
-      setLoading(false)
-      return
-    }
-
-    const { data, error } = await supabase.from('projects').select('*').order('created_at', { ascending: false })
     if (error) {
-      setError('Server nicht erreichbar. Offline-Cache wird verwendet.')
+      setError('Supabase Fehler beim Laden: ' + error.message)
       setConnected(false)
-      setItems(cached)
+      setItems([])
     } else {
       setError('')
       setConnected(true)
-      setOnline(true)
       setItems(data || [])
-      writeCache(data || [])
     }
     setLoading(false)
   }
@@ -323,15 +371,6 @@ export default function App() {
   useEffect(() => { const channel = supabase.channel('projects-live').on('postgres_changes', { event: '*', schema: 'public', table: 'projects' }, () => load()).subscribe(s => setConnected(s === 'SUBSCRIBED')); return () => supabase.removeChannel(channel) }, [])
   useEffect(() => { const onHash = () => { if (window.location.hash === PUBLIC_SCREEN_HASH) setTab('screen') }; window.addEventListener('hashchange', onHash); return () => window.removeEventListener('hashchange', onHash) }, [])
   useEffect(() => { const timer = setInterval(() => setNow(new Date()), 1000); return () => clearInterval(timer) }, [])
-  useEffect(() => {
-    let title = 'Gnannt Produktionsplanung'
-    if (!user && !isScreen) title = 'Gnannt Login'
-    else if (isScreen || tab === 'screen') title = 'Gnannt Live Screen'
-    else if (tab === 'upload') title = 'Gnannt PDF Upload'
-    else if (tab === 'calendar') title = 'Gnannt Kalender'
-    document.title = title
-  }, [user, isScreen, tab])
-
   useEffect(() => { if (tab !== 'screen') return; const el = screenRef.current; if (!el) return; const timer = setInterval(() => { if (el.scrollHeight <= el.clientHeight) return; if (el.scrollTop >= el.scrollHeight - el.clientHeight - 2) el.scrollTop = 0; else el.scrollTop += 1 }, 35); return () => clearInterval(timer) }, [tab, items.length])
 
   const filtered = useMemo(() => items.filter(x => { const text = [x.projekt,x.kunde,x.adresse,x.telefon,x.email_kunde,x.ort,x.gewerk,x.lead,x.status,x.notiz,x.mitarbeiter].join(' ').toLowerCase(); return (!search || text.includes(search.toLowerCase())) && (filterLead === 'ALLE' || x.lead === filterLead) }), [items, search, filterLead])
@@ -392,87 +431,107 @@ export default function App() {
   }
 
   const save = async () => {
-    if (!form.projekt?.trim()) return
-    setSaving(true)
-    const payload = { ...form, id: undefined, termin: form.termin || null }
+    if (!form.projekt?.trim()) {
+      setError('Bitte mindestens Projekt eintragen.')
+      return
+    }
 
-    if (!navigator.onLine) {
-      const offlineId = form.id || ('offline_' + Date.now())
-      const offlineProject = { ...form, id: offlineId, created_at: new Date().toISOString(), termin: form.termin || null, __offline: true, offline_id: offlineId }
-      cacheUpsert(offlineProject)
-      setItems(readCache())
-      queueOperation({ type: form.id ? 'update' : 'insert', id: form.id, payload: offlineProject })
-      setModal(false)
-      setForm(EMPTY)
-      setPendingFile(null)
-      setError('Offline gespeichert. Wird automatisch synchronisiert, sobald Internet verfügbar ist.')
+    setSaving(true)
+    setError('')
+
+    const payload = toDbProject(form)
+    let result
+    let savedId = form.id
+
+    if (form.id && !String(form.id).startsWith('offline_')) {
+      result = await supabase
+        .from('projects')
+        .update(payload)
+        .eq('id', form.id)
+        .select()
+        .single()
+    } else {
+      result = await supabase
+        .from('projects')
+        .insert(payload)
+        .select()
+        .single()
+      savedId = result.data?.id
+    }
+
+    if (result.error) {
+      setError('Speichern fehlgeschlagen: ' + result.error.message)
       setSaving(false)
       return
     }
 
-    let newId = form.id
-    let res
-    if (form.id) {
-      res = await supabase.from('projects').update(payload).eq('id', form.id).select().single()
-    } else {
-      res = await supabase.from('projects').insert(payload).select().single()
-      newId = res.data?.id
-    }
-
-    if (res.error) {
-      const offlineId = form.id || ('offline_' + Date.now())
-      const offlineProject = { ...form, id: offlineId, created_at: new Date().toISOString(), termin: form.termin || null, __offline: true, offline_id: offlineId }
-      cacheUpsert(offlineProject)
-      setItems(readCache())
-      queueOperation({ type: form.id ? 'update' : 'insert', id: form.id, payload: offlineProject })
-      setError('Server nicht erreichbar. Offline gespeichert und zur Synchronisierung vorgemerkt.')
-    } else {
-      if (pendingFile && newId) await upload(pendingFile, newId)
-      else await load()
-      setError('')
+    if (pendingFile && savedId) {
+      await upload(pendingFile, savedId)
     }
 
     setModal(false)
     setForm(EMPTY)
     setPendingFile(null)
+    await load()
     setSaving(false)
   }
 
   const edit = (item) => { setForm({ ...EMPTY, ...item }); setModal(true) }
   const updateStatus = async (id, status) => {
-    if (!navigator.onLine || String(id).startsWith('offline_')) {
-      setItems(cacheUpdate(id, { status }))
-      queueOperation({ type: 'update', id, payload: { status } })
-      setError('Status offline gespeichert. Synchronisierung folgt automatisch.')
+    setError('')
+    const { error } = await supabase
+      .from('projects')
+      .update({ status })
+      .eq('id', id)
+
+    if (error) {
+      setError('Status konnte nicht gespeichert werden: ' + error.message)
       return
     }
-    const { error } = await supabase.from('projects').update({ status }).eq('id', id)
-    if (error) {
-      setItems(cacheUpdate(id, { status }))
-      queueOperation({ type: 'update', id, payload: { status } })
-      setError('Server nicht erreichbar. Status offline gespeichert.')
-    } else {
-      await load()
-    }
+
+    await load()
   }
 
   const upload = async (file, projectId = form.id) => {
     if (!file || !projectId) return false
-    if (!navigator.onLine) { setError('PDF Upload ist offline nicht möglich. Bitte PDF nach Internetverbindung erneut hochladen.'); return false }
+
     setUploading(true)
+    setError('')
+
     const ext = file.name.split('.').pop() || 'pdf'
-    const path = `projects/${projectId}_${Date.now()}.${ext}`
-    const { error: upErr } = await supabase.storage.from(STORAGE_BUCKET).upload(path, file, { upsert: true })
-    if (upErr) { setError(upErr.message); setUploading(false); return false }
+    const safeName = file.name.replace(/[^a-zA-Z0-9_.-]/g, '_')
+    const path = `projects/${projectId}_${Date.now()}_${safeName}`
+
+    const { error: upErr } = await supabase.storage
+      .from(STORAGE_BUCKET)
+      .upload(path, file, { upsert: true, contentType: file.type || 'application/pdf' })
+
+    if (upErr) {
+      setError('PDF Upload fehlgeschlagen: ' + upErr.message)
+      setUploading(false)
+      return false
+    }
+
     const { data } = supabase.storage.from(STORAGE_BUCKET).getPublicUrl(path)
-    const { error: dbErr } = await supabase.from('projects').update({ attachment_name: file.name, attachment_url: data.publicUrl }).eq('id', projectId)
-    if (dbErr) { setError(dbErr.message); setUploading(false); return false }
+
+    const { error: dbErr } = await supabase
+      .from('projects')
+      .update({ attachment_name: file.name, attachment_url: data.publicUrl })
+      .eq('id', projectId)
+
+    if (dbErr) {
+      setError('PDF Link konnte nicht gespeichert werden: ' + dbErr.message)
+      setUploading(false)
+      return false
+    }
+
     setForm(p => ({ ...p, attachment_name: file.name, attachment_url: data.publicUrl }))
     setPendingFile(null)
     await load()
     setUploading(false)
     return true
   }
+
   const openScreen = () => { window.location.hash = PUBLIC_SCREEN_HASH; setTab('screen') }
   const openBoard = () => { window.location.hash = ''; setTab('planung') }
   const full = async () => { try { if (!document.fullscreenElement) await document.documentElement.requestFullscreen(); else await document.exitFullscreen() } catch {} }
@@ -483,5 +542,5 @@ export default function App() {
 
   if (!user && !isScreen) return <Login username={username} setUsername={setUsername} password={password} setPassword={setPassword} onPlanerLogin={planerLogin} error={loginError} openScreen={openScreen} />
   if (tab === 'screen') return <div className="screen"><div className="screen-top"><div className="screen-brand"><img src="/gnannt-logo.png" alt="Gnannt" /><div><h1>Gnannt Produktionsplanung</h1><p>Offene Projekte: {active.length}</p></div></div><div className="screen-actions"><div className="screen-clock"><strong>{screenDateText}</strong><span>{screenTimeText}</span></div><span className={connected ? 'live on' : 'live off'}><Cloud size={14}/>{connected ? 'Live' : 'Offline'}</span><button className="btn screenbtn icon-only" title="Screen sperren" onClick={() => { sessionStorage.removeItem('gnannt_screen_unlocked'); setScreenUnlocked(false); setScreenPassword('') }}><LogOut size={18}/></button><button className="btn screenbtn icon-only" title="Plantafel" onClick={openBoard}><Monitor size={18}/></button><button className="btn screenbtn icon-only" title="Vollbild" onClick={full}><Maximize size={18}/></button></div></div><div ref={screenRef} className="screen-scroll">{loading ? <div className="screen-empty">Lade Daten...</div> : active.length ? active.map(x => <Card key={x.id} item={x} compact dark />) : <div className="screen-empty">Keine offenen Projekte.</div>}</div></div>
-  return <div className="app"><div className="shell"><header><div className="board-brand"><img src="/gnannt-logo.png" alt="Gnannt" /><div><h1>Gnannt Produktionsplanung</h1><p>Produktion & Montage</p></div></div><div className="header-actions"><span className={online ? 'online-pill on' : 'online-pill off'}>{online ? (syncing ? 'Sync läuft' : 'Online') : 'Offline'}</span><button className="btn outline" onClick={() => { load(); syncQueue() }}><RefreshCw size={16}/> Neu laden</button><button className="btn outline" onClick={openScreen}><Monitor size={16}/> Screen</button><button className="btn outline" onClick={logout}><LogOut size={16}/> Abmelden</button><button className="btn primary" onClick={() => { setForm(EMPTY); setPendingFile(null); setModal(true) }}><Plus size={16}/> Neuer Auftrag</button></div></header><div className="stats stats-two"><div className="stat"><p>Offene Projekte</p><strong>{active.length}</strong></div><div className="stat"><p>Datenstatus</p><span><Cloud size={16}/> {online ? (syncing ? 'Synchronisiere...' : (connected ? 'Supabase live verbunden' : 'Online / Verbindung wird geprüft')) : 'Offline-Modus'}</span>{error && <small className="error">{error}</small>}</div></div><div className="toolbar"><div className="search"><Search size={18}/><input value={search} onChange={e => setSearch(e.target.value)} placeholder="Suche nach Projekt, Kunde, Ort oder Verantwortlichem..." /></div><select value={filterLead} onChange={e => setFilterLead(e.target.value)}><option>ALLE</option>{EMPLOYEES.map(x => <option key={x}>{x}</option>)}</select></div><nav>{['planung','dashboard','kalender','uploads','ruben','team'].map(t => <button key={t} className={tab===t ? 'active' : ''} onClick={() => setTab(t)}>{t}</button>)}</nav>{loading ? <div className="panel center">Lade Projekte...</div> : tab === 'planung' ? <div className="stack">{grouped.map(g => <div key={g.status} className="panel" onDragOver={e => e.preventDefault()} onDrop={() => dragged && updateStatus(dragged, g.status)}><div className="panel-head"><h3>{g.status}</h3><span className={badgeClass(g.status)}>{g.items.length}</span></div><p className="tiny">Drag & Drop zwischen Statusbereichen aktiv</p><div className="grid">{g.items.length ? g.items.map(x => <Card key={x.id} item={x} onEdit={edit} onStatus={updateStatus} draggable onDragStart={() => setDragged(x.id)} />) : <div className="empty">Keine offenen Projekte</div>}</div></div>)}{archived.length > 0 && <div className="panel"><h3>Archiv</h3><div className="grid">{archived.map(x => <Card key={x.id} item={x} onEdit={edit} onStatus={updateStatus}/>)}</div></div>}</div> : tab === 'dashboard' ? <Dashboard active={active} archived={archived}/> : tab === 'kalender' ? <Calendar items={active} edit={edit}/> : tab === 'uploads' ? <Uploads items={items} edit={edit}/> : <Team user={user} items={tab === 'ruben' ? items.filter(x => x.status === 'MONTAGE' || x.lead === 'Ruben') : items}/>}<Modal open={modal} close={() => setModal(false)}><Form form={form} setForm={setForm} save={save} saving={saving} upload={upload} uploading={uploading} pendingFile={pendingFile} setPendingFile={setPendingFile} /></Modal></div></div>
+  return <div className="app"><div className="shell"><header><div className="board-brand"><img src="/gnannt-logo.png" alt="Gnannt" /><div><h1>Gnannt Produktionsplanung</h1><p>Produktion & Montage</p></div></div><div className="header-actions"><span className={online ? 'online-pill on' : 'online-pill off'}>{online ? (syncing ? 'Sync läuft' : 'Online') : 'Offline'}</span><button className="btn outline" onClick={() => { load(); syncQueue() }}><RefreshCw size={16}/> Neu laden</button><button className="btn outline" onClick={openScreen}><Monitor size={16}/> Screen</button><button className="btn outline" onClick={logout}><LogOut size={16}/> Abmelden</button><button className="btn primary" onClick={() => { setForm(EMPTY); setPendingFile(null); setModal(true) }}><Plus size={16}/> Neuer Auftrag</button></div></header><div className="stats stats-two"><div className="stat"><p>Offene Projekte</p><strong>{active.length}</strong></div><div className="stat"><p>Datenstatus</p><span><Cloud size={16}/> {online ? (syncing ? 'Synchronisiere...' : (connected ? 'Supabase live verbunden' : 'Online / Verbindung wird geprüft')) : 'Offline-Modus'}</span>{error && <small className="error">{error}</small>}</div></div><div className="toolbar"><div className="search"><Search size={18}/><input value={search} onChange={e => setSearch(e.target.value)} placeholder="Suche nach Projekt, Kunde, Ort oder Verantwortlichem..." /></div><select value={filterLead} onChange={e => setFilterLead(e.target.value)}><option>ALLE</option>{EMPLOYEES.map(x => <option key={x}>{x}</option>)}</select></div><nav>{['planung','hub','dashboard','kalender','uploads','ruben','team'].map(t => <button key={t} className={tab===t ? 'active' : ''} onClick={() => setTab(t)}>{t}</button>)}</nav>{loading ? <div className="panel center">Lade Projekte...</div> : tab === 'planung' ? <div className="stack">{grouped.map(g => <div key={g.status} className="panel" onDragOver={e => e.preventDefault()} onDrop={() => dragged && updateStatus(dragged, g.status)}><div className="panel-head"><h3>{g.status}</h3><span className={badgeClass(g.status)}>{g.items.length}</span></div><p className="tiny">Drag & Drop zwischen Statusbereichen aktiv</p><div className="grid">{g.items.length ? g.items.map(x => <Card key={x.id} item={x} onEdit={edit} onStatus={updateStatus} draggable onDragStart={() => setDragged(x.id)} />) : <div className="empty">Keine offenen Projekte</div>}</div></div>)}{archived.length > 0 && <div className="panel"><h3>Archiv</h3><div className="grid">{archived.map(x => <Card key={x.id} item={x} onEdit={edit} onStatus={updateStatus}/>)}</div></div>}</div> : tab === 'hub' ? <KnowledgeHubPage/> : tab === 'dashboard' ? <Dashboard active={active} archived={archived}/> : tab === 'kalender' ? <Calendar items={active} edit={edit}/> : tab === 'uploads' ? <Uploads items={items} edit={edit}/> : <Team user={user} items={tab === 'ruben' ? items.filter(x => x.status === 'MONTAGE' || x.lead === 'Ruben') : items}/>}<Modal open={modal} close={() => setModal(false)}><Form form={form} setForm={setForm} save={save} saving={saving} upload={upload} uploading={uploading} pendingFile={pendingFile} setPendingFile={setPendingFile} /></Modal></div></div>
 }
