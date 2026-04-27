@@ -755,14 +755,14 @@ export default function App() {
 
   if (!user && !isScreen) return <Login username={username} setUsername={setUsername} password={password} setPassword={setPassword} onPlanerLogin={planerLogin} error={loginError} openScreen={openScreen} />
   if (tab === 'screen') return <div className="screen"><div className="screen-top"><div className="screen-brand"><img src="/gnannt-logo.png" alt="Gnannt" /><div><h1>Gnannt Produktionsplanung</h1><p>Offene Projekte: {active.length}</p></div></div><div className="screen-actions final-topbar">
-  <div className="screen-clock"><strong>{screenDateText}</strong><span>{screenTimeText}</span></div>
-  <span className="live autoscroll-badge">AutoScroll</span>
-  <span className={connected ? 'live on' : 'live off'}><Cloud size={14}/>{connected ? 'Live' : 'Offline'}</span>
-  <button className="btn screenbtn icon-only" title="Neu laden" onClick={() => { load() }}><RefreshCw size={18}/></button>
-  <button className="btn screenbtn icon-only" title="Plantafel" onClick={openBoard}><Monitor size={18}/></button>
-  <button className="btn screenbtn icon-only" title="Vollbild" onClick={full}><Maximize size={18}/></button>
-  <button className="btn screenbtn icon-only" title="Screen sperren" onClick={() => { sessionStorage.removeItem('gnannt_screen_unlocked'); setScreenUnlocked(false); setScreenPassword('') }}><LogOut size={18}/></button>
-</div><span className={connected ? 'live on' : 'live off'}><Cloud size={14}/>{connected ? 'Live' : 'Offline'}</span><button className="btn screenbtn icon-only" title="Screen sperren" onClick={() => { sessionStorage.removeItem('gnannt_screen_unlocked'); setScreenUnlocked(false); setScreenPassword('') }}><LogOut size={18}/></button><button className="btn screenbtn icon-only" title="Plantafel" onClick={openBoard}><Monitor size={18}/></button><button className="btn screenbtn icon-only" title="Vollbild" onClick={full}><Maximize size={18}/></button></div></div><div ref={screenRef} className="screen-scroll"><div className="screen-v3-grid">
+          <div className="screen-clock"><strong>{screenDateText}</strong><span>{screenTimeText}</span></div>
+          <span className="live autoscroll-badge">AutoScroll</span>
+          <span className={connected ? 'live on' : 'live off'}><Cloud size={14}/>{connected ? 'Live' : 'Offline'}</span>
+          <button className="btn screenbtn icon-only" title="Neu laden" onClick={() => { load() }}><RefreshCw size={18}/></button>
+          <button className="btn screenbtn icon-only" title="Plantafel" onClick={openBoard}><Monitor size={18}/></button>
+          <button className="btn screenbtn icon-only" title="Vollbild" onClick={full}><Maximize size={18}/></button>
+          <button className="btn screenbtn icon-only" title="Screen sperren" onClick={() => { sessionStorage.removeItem('gnannt_screen_unlocked'); setScreenUnlocked(false); setScreenPassword('') }}><LogOut size={18}/></button>
+        </div><div ref={screenRef} className="screen-scroll"><div className="screen-v3-grid">
       <section className="screen-col">
         <div className="screen-col-head">Produktion / Werkstatt</div>
         {shownProd.length === 0 ? <div className="screen-empty-small">Keine Produktionseinträge</div> : shownProd.map(item => <Card key={item.id} item={item} screen />)}

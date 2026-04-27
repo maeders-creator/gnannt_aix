@@ -1384,7 +1384,7 @@ body {
   .screen-v3-grid{gap:10px}
 }
 
-/* FINAL PREMIUM SCREEN TOPBAR */
+/* FINAL FIXED PREMIUM SCREEN TOPBAR */
 .final-topbar{
   display:flex;
   align-items:center;
@@ -1419,26 +1419,11 @@ body {
   display:grid;
   place-items:center;
 }
-.final-topbar .live{
-  min-height:42px;
-}
+.final-topbar .live{min-height:42px}
 @media(max-width:767px){
-  .final-topbar{
-    justify-content:flex-start;
-    flex-wrap:wrap;
-    gap:7px;
-  }
-  .screen-clock{
-    width:100%;
-    min-width:0;
-    align-items:flex-start;
-    margin-right:0;
-    order:-1;
-  }
+  .final-topbar{justify-content:flex-start;flex-wrap:wrap;gap:7px}
+  .screen-clock{width:100%;min-width:0;align-items:flex-start;margin-right:0;order:-1}
   .screen-clock strong{font-size:13px}
   .screen-clock span{font-size:22px}
-  .screenbtn.icon-only{
-    width:38px;
-    height:38px;
-  }
+  .screenbtn.icon-only{width:38px;height:38px}
 }
