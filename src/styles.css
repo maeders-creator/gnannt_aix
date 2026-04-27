@@ -1261,14 +1261,24 @@ body {
 @media(max-width:1100px){.screen-v3-grid{grid-template-columns:1fr}}
 @media(max-width:767px){.final-topbar{justify-content:flex-start;flex-wrap:wrap;gap:7px}.screen-clock{width:100%;min-width:0;align-items:flex-start;margin-right:0;order:-1}.screen-clock strong{font-size:13px}.screen-clock span{font-size:22px}.screenbtn.icon-only{width:38px;height:38px}.screen-col-head{font-size:15px;min-height:44px;border-radius:14px}.screen-job-head strong{font-size:18px}}
 
-/* Slow AutoScroll + stronger touch pause */
-.screen-scroll{
-  touch-action: pan-y;
+/* FINAL MERGED: keep split screen, visible hub, ultra slow scroll */
+.autoscroll-badge{display:none!important}
+body.scroll-paused .screen::after{
+  content:"AutoScroll pausiert";
+  position:fixed;
+  right:22px;
+  bottom:22px;
+  z-index:9999;
+  background:rgba(15,23,42,.92);
+  color:white;
+  padding:10px 14px;
+  border-radius:999px;
+  font-weight:900;
+  border:1px solid rgba(255,255,255,.18);
 }
-
-
-/* Knowledge Base Live DB */
 .knowledge-live{display:flex;flex-direction:column;gap:18px}
+.hub-card-button{text-align:left;cursor:pointer;width:100%;font:inherit;min-height:210px}
+.hub-card-button.selected{border-color:#0f172a;box-shadow:0 0 0 3px rgba(15,23,42,.08)}
 .kb-layout{display:grid;grid-template-columns:minmax(320px,420px) 1fr;gap:16px}
 .kb-panel{background:white;border:1px solid #dbe3ed;border-radius:22px;padding:20px;box-shadow:0 2px 10px rgba(15,23,42,.05);display:flex;flex-direction:column;gap:12px}
 .kb-panel h3{margin:0;font-size:20px}
@@ -1276,106 +1286,14 @@ body {
 .kb-list{display:flex;flex-direction:column;gap:10px;margin-top:6px}
 .kb-item{display:flex;align-items:center;justify-content:space-between;gap:12px;border:1px solid #e2e8f0;border-radius:16px;padding:14px;background:#f8fafc}
 .kb-item p{margin:4px 0 0;color:#64748b;font-size:13px}
+.kb-title-row{display:flex;justify-content:space-between;align-items:center;gap:10px}
+@media(min-width:1001px){nav{grid-template-columns:repeat(7,minmax(0,1fr))}}
 @media(max-width:900px){
   .kb-layout{grid-template-columns:1fr}
   .kb-filters{grid-template-columns:1fr}
   .kb-item{align-items:flex-start;flex-direction:column}
-}
-
-/* COMPLETE FINAL FIX: no autoscroll badge, slower scroll, full screen cards, hub cards */
-.autoscroll-badge{display:none!important}
-.screen-job-card{
-  background:linear-gradient(180deg,#ffffff,#f8fafc);
-  border:1px solid #dbe3ed;
-  border-radius:20px;
-  padding:18px;
-  box-shadow:0 8px 24px rgba(15,23,42,.10);
-}
-.screen-job-head{
-  display:flex;
-  align-items:flex-start;
-  justify-content:space-between;
-  gap:12px;
-}
-.screen-job-head strong{
-  font-size:24px;
-  color:#0f172a;
-  line-height:1.1;
-}
-.screen-job-head p{
-  margin:5px 0 0;
-  color:#64748b;
-  font-weight:800;
-}
-.screen-job-meta{
-  display:flex;
-  flex-wrap:wrap;
-  gap:8px;
-  margin-top:14px;
-}
-.screen-job-meta span{
-  background:#e0f2fe;
-  color:#075985;
-  border-radius:999px;
-  padding:6px 10px;
-  font-weight:900;
-  font-size:13px;
-}
-.screen-customer-grid{
-  display:grid;
-  grid-template-columns:1fr 1fr;
-  gap:10px;
-  margin-top:14px;
-}
-.screen-customer-grid div{
-  background:#f1f5f9;
-  border:1px solid #e2e8f0;
-  border-radius:14px;
-  padding:10px;
-  min-width:0;
-}
-.screen-customer-grid small{
-  display:block;
-  color:#64748b;
-  font-weight:800;
-  font-size:11px;
-  text-transform:uppercase;
-  letter-spacing:.3px;
-  margin-bottom:4px;
-}
-.screen-customer-grid b{
-  display:block;
-  color:#0f172a;
-  font-size:14px;
-  overflow:hidden;
-  text-overflow:ellipsis;
-}
-.screen-file{
-  margin-top:12px;
-  background:#eef2ff;
-  color:#3730a3;
-  border:1px solid #c7d2fe;
-  border-radius:14px;
-  padding:10px;
-  font-weight:800;
-}
-.hub-card-button{
-  text-align:left;
-  cursor:pointer;
-  width:100%;
-  font:inherit;
-}
-.hub-card-button.selected{
-  border-color:#0f172a;
-  box-shadow:0 0 0 3px rgba(15,23,42,.08);
-}
-.kb-title-row{
-  display:flex;
-  justify-content:space-between;
-  align-items:center;
-  gap:10px;
-}
-@media(max-width:900px){
-  .screen-customer-grid{grid-template-columns:1fr}
   .kb-title-row{align-items:flex-start;flex-direction:column}
+}
+@media(max-width:767px){
+  .hub-card-button{min-height:auto}
 }
