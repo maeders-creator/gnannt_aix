@@ -1265,11 +1265,7 @@ body {
 .screen-scroll{
   touch-action: pan-y;
 }
-.autoscroll-badge::after{
-  content:" langsam";
-  opacity:.75;
-  font-weight:700;
-}
+
 
 /* Knowledge Base Live DB */
 .knowledge-live{display:flex;flex-direction:column;gap:18px}
@@ -1284,4 +1280,102 @@ body {
   .kb-layout{grid-template-columns:1fr}
   .kb-filters{grid-template-columns:1fr}
   .kb-item{align-items:flex-start;flex-direction:column}
+}
+
+/* COMPLETE FINAL FIX: no autoscroll badge, slower scroll, full screen cards, hub cards */
+.autoscroll-badge{display:none!important}
+.screen-job-card{
+  background:linear-gradient(180deg,#ffffff,#f8fafc);
+  border:1px solid #dbe3ed;
+  border-radius:20px;
+  padding:18px;
+  box-shadow:0 8px 24px rgba(15,23,42,.10);
+}
+.screen-job-head{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:12px;
+}
+.screen-job-head strong{
+  font-size:24px;
+  color:#0f172a;
+  line-height:1.1;
+}
+.screen-job-head p{
+  margin:5px 0 0;
+  color:#64748b;
+  font-weight:800;
+}
+.screen-job-meta{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+  margin-top:14px;
+}
+.screen-job-meta span{
+  background:#e0f2fe;
+  color:#075985;
+  border-radius:999px;
+  padding:6px 10px;
+  font-weight:900;
+  font-size:13px;
+}
+.screen-customer-grid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:10px;
+  margin-top:14px;
+}
+.screen-customer-grid div{
+  background:#f1f5f9;
+  border:1px solid #e2e8f0;
+  border-radius:14px;
+  padding:10px;
+  min-width:0;
+}
+.screen-customer-grid small{
+  display:block;
+  color:#64748b;
+  font-weight:800;
+  font-size:11px;
+  text-transform:uppercase;
+  letter-spacing:.3px;
+  margin-bottom:4px;
+}
+.screen-customer-grid b{
+  display:block;
+  color:#0f172a;
+  font-size:14px;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+.screen-file{
+  margin-top:12px;
+  background:#eef2ff;
+  color:#3730a3;
+  border:1px solid #c7d2fe;
+  border-radius:14px;
+  padding:10px;
+  font-weight:800;
+}
+.hub-card-button{
+  text-align:left;
+  cursor:pointer;
+  width:100%;
+  font:inherit;
+}
+.hub-card-button.selected{
+  border-color:#0f172a;
+  box-shadow:0 0 0 3px rgba(15,23,42,.08);
+}
+.kb-title-row{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:10px;
+}
+@media(max-width:900px){
+  .screen-customer-grid{grid-template-columns:1fr}
+  .kb-title-row{align-items:flex-start;flex-direction:column}
 }

@@ -153,6 +153,7 @@ function printJobPdf(item) {
 }
 
 
+
 function KnowledgeBaseLive() {
   const [docs, setDocs] = useState([])
   const [kbSearch, setKbSearch] = useState('')
@@ -164,7 +165,14 @@ function KnowledgeBaseLive() {
   const [kbError, setKbError] = useState('')
   const [kbLoading, setKbLoading] = useState(false)
 
-  const categories = ['Montage Akademie', 'Sicherheitsunterweisung', 'Aufmaß', 'Dokumente & Videos']
+  const categories = [
+    { title: 'Montage Akademie', icon: '🛠️', text: 'Montageanleitungen, Videos, Checklisten und Standards für Monteure.' },
+    { title: 'Sicherheitsunterweisung', icon: '🦺', text: 'Jährliche Unterweisungen, Baustellensicherheit, Maschinen, PSA und Nachweise.' },
+    { title: 'Aufmaß', icon: '📏', text: 'Digitales Aufmaß, Fotos, PDF-Aufmaßblätter und Freigabeprozess.' },
+    { title: 'Dokumente & Videos', icon: '📚', text: 'Zentrale Ablage für PDFs, Videos, Herstellerinformationen und interne Standards.' }
+  ]
+
+  const categoryNames = categories.map(c => c.title)
 
   const loadDocs = async () => {
     setKbLoading(true)
@@ -199,7 +207,6 @@ function KnowledgeBaseLive() {
     if (file) {
       const safeName = file.name.replace(/[^a-zA-Z0-9_.-]/g, '_')
       const path = `knowledge/${Date.now()}_${safeName}`
-
       const { error: upErr } = await supabase.storage
         .from('uploads')
         .upload(path, file, { upsert: true, contentType: file.type || 'application/octet-stream' })
@@ -243,8 +250,18 @@ function KnowledgeBaseLive() {
   return (
     <div className="knowledge-live">
       <div className="hub-hero">
-        <h2>GNANNT Wissensdatenbank</h2>
-        <p>Montageanleitungen, Videos, Sicherheitsunterweisungen, Aufmaß-Vorlagen und interne Dokumente.</p>
+        <h2>GNANNT HUB</h2>
+        <p>Montagewissen, Sicherheitsunterweisung, Aufmaß und Dokumente zentral verwalten.</p>
+      </div>
+
+      <div className="hub-grid">
+        {categories.map(c => (
+          <button className={'hub-card hub-card-button ' + (category === c.title ? 'selected' : '')} key={c.title} onClick={() => setCategory(c.title)}>
+            <div className="hub-icon">{c.icon}</div>
+            <h3>{c.title}</h3>
+            <p>{c.text}</p>
+          </button>
+        ))}
       </div>
 
       <div className="kb-layout">
@@ -252,7 +269,7 @@ function KnowledgeBaseLive() {
           <h3>Neuen Eintrag hinzufügen</h3>
           <input className="input" placeholder="Titel" value={title} onChange={e => setTitle(e.target.value)} />
           <select className="input" value={docCategory} onChange={e => setDocCategory(e.target.value)}>
-            {categories.map(c => <option key={c}>{c}</option>)}
+            {categoryNames.map(c => <option key={c}>{c}</option>)}
           </select>
           <input className="input" placeholder="Video-Link oder externe URL optional" value={url} onChange={e => setUrl(e.target.value)} />
           <input className="input" type="file" accept="application/pdf,video/*,image/*" onChange={e => setFile(e.target.files?.[0] || null)} />
@@ -262,12 +279,15 @@ function KnowledgeBaseLive() {
         </div>
 
         <div className="kb-panel">
-          <h3>Dokumente / Videos</h3>
+          <div className="kb-title-row">
+            <h3>Dokumente / Videos</h3>
+            <button className="btn small outline" onClick={() => setCategory('ALLE')}>Alle anzeigen</button>
+          </div>
           <div className="kb-filters">
             <input className="input" placeholder="Suchen..." value={kbSearch} onChange={e => setKbSearch(e.target.value)} />
             <select className="input" value={category} onChange={e => setCategory(e.target.value)}>
               <option>ALLE</option>
-              {categories.map(c => <option key={c}>{c}</option>)}
+              {categoryNames.map(c => <option key={c}>{c}</option>)}
             </select>
           </div>
 
@@ -463,6 +483,7 @@ function Uploads({ items, edit }) { return <div className="panel"><h3><Upload/> 
 function Team({ user, items }) { const ruben = items.filter(x => x.status === 'MONTAGE' || x.lead === 'Ruben'); return <div className="stack"><div className="two"><div className="panel"><h3><Users/> Mitarbeiter Login</h3><p>Aktuell: <strong>{user?.email || '-'}</strong></p><p>Rolle: <strong>{user?.role || 'user'}</strong></p></div><div className="panel"><h3><FolderOpen/> Ruben App</h3><p>Relevante Montageprojekte: <strong>{ruben.length}</strong></p></div></div><div className="grid">{ruben.map(x => <Card key={x.id} item={x} compact />)}</div></div> }
 
 
+
 function ScreenJobCard({ item }) {
   return (
     <div className="screen-job-card">
@@ -473,16 +494,27 @@ function ScreenJobCard({ item }) {
         </div>
         <button className="print-icon-btn" title="Auftrag drucken / PDF" onClick={() => printJobPdf(item)}>🖨️</button>
       </div>
+
       <div className="screen-job-meta">
         <span>{item.status || '-'}</span>
-        <span>{item.lead || '-'}</span>
         {item.termin && <span>{formatDateDE(item.termin)}</span>}
+        {item.lead && <span>{item.lead}</span>}
         {item.mitarbeiter && <span>{item.mitarbeiter}</span>}
       </div>
+
+      <div className="screen-customer-grid">
+        <div><small>Kunde</small><b>{item.kunde || '-'}</b></div>
+        <div><small>Adresse</small><b>{item.adresse || item.ort || '-'}</b></div>
+        <div><small>Telefon</small><b>{item.telefon || '-'}</b></div>
+        <div><small>E-Mail</small><b>{item.email_kunde || '-'}</b></div>
+      </div>
+
+      {item.attachment_name && <div className="screen-file">📎 {item.attachment_name}</div>}
       {item.notiz && <div className="screen-job-note">{item.notiz}</div>}
     </div>
   )
 }
+
 
 function ScreenSplitView({ prodItems, montageItems }) {
   return (
@@ -576,47 +608,48 @@ export default function App() {
         autoScrollTimerRef.current = null
       }
     }
+
     const clearResume = () => {
       if (autoScrollResumeRef.current) {
         clearTimeout(autoScrollResumeRef.current)
         autoScrollResumeRef.current = null
       }
     }
+
     const startAutoScroll = () => {
       clearAutoScroll()
       autoScrollTimerRef.current = setInterval(() => {
+        if (!screenRef.current) return
         const maxScroll = el.scrollHeight - el.clientHeight
         if (maxScroll <= 8) return
-        if (el.scrollTop >= maxScroll - 3) {
+
+        if (el.scrollTop >= maxScroll - 4) {
           clearAutoScroll()
           setTimeout(() => {
             el.scrollTo({ top: 0, behavior: 'smooth' })
-            setTimeout(startAutoScroll, 7000)
-          }, 7000)
+            setTimeout(startAutoScroll, 8000)
+          }, 8000)
           return
         }
-        el.scrollBy({ top: 0.55, behavior: 'auto' })
-      }, 160)
+
+        el.scrollTop = el.scrollTop + 0.35
+      }, 220)
     }
+
     const pauseAutoScroll = () => {
       clearAutoScroll()
       clearResume()
-      autoScrollResumeRef.current = setTimeout(startAutoScroll, 90000)
+      autoScrollResumeRef.current = setTimeout(startAutoScroll, 120000)
     }
+
+    const targets = [el, window, document, document.body]
+    const events = ['touchstart', 'touchmove', 'pointerdown', 'pointermove', 'mousedown', 'wheel', 'keydown']
+    targets.forEach(target => {
+      events.forEach(evt => target.addEventListener(evt, pauseAutoScroll, { passive: true }))
+    })
 
     startAutoScroll()
 
-    const globalPauseTargets = [el, window, document]
-    globalPauseTargets.forEach(target => {
-      target.addEventListener('wheel', pauseAutoScroll, { passive: true })
-      target.addEventListener('touchstart', pauseAutoScroll, { passive: true })
-      target.addEventListener('touchmove', pauseAutoScroll, { passive: true })
-      target.addEventListener('pointerdown', pauseAutoScroll)
-      target.addEventListener('mousedown', pauseAutoScroll)
-      target.addEventListener('keydown', pauseAutoScroll)
-    })
-
-    el.addEventListener('wheel', pauseAutoScroll, { passive: true })
     autoReloadRef.current = setInterval(() => {
       if (document.visibilityState === 'visible' && navigator.onLine) load()
     }, 10 * 60 * 1000)
@@ -625,13 +658,8 @@ export default function App() {
       clearAutoScroll()
       clearResume()
       if (autoReloadRef.current) clearInterval(autoReloadRef.current)
-      globalPauseTargets.forEach(target => {
-        target.removeEventListener('wheel', pauseAutoScroll)
-        target.removeEventListener('touchstart', pauseAutoScroll)
-        target.removeEventListener('touchmove', pauseAutoScroll)
-        target.removeEventListener('pointerdown', pauseAutoScroll)
-        target.removeEventListener('mousedown', pauseAutoScroll)
-        target.removeEventListener('keydown', pauseAutoScroll)
+      targets.forEach(target => {
+        events.forEach(evt => target.removeEventListener(evt, pauseAutoScroll))
       })
     }
   }, [tab, items.length])
@@ -824,7 +852,6 @@ export default function App() {
             <strong>{screenDateText}</strong>
             <span>{screenTimeText}</span>
           </div>
-          <span className="live autoscroll-badge">AutoScroll</span>
           <span className={connected ? 'live on' : 'live off'}>
             <Cloud size={14}/>{connected ? 'Live' : 'Offline'}
           </span>
