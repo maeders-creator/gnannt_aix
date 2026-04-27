@@ -66,7 +66,7 @@ function Card({ item, onEdit, onStatus, compact, dark, draggable, onDragStart })
           </div>
           <p>{item.kunde || '-'}</p>
         </div>
-        <div className="badges"><button className="print-icon-btn" title="Auftrag drucken / PDF" onClick={() => printJobPdf(item)}>🖨️</button>
+        <div className="badges">
           <span className={badgeClass(item.status, dark)}>{item.status}</span>
           {!compact && <span className="mini-badge">{item.prioritaet || 'Mittel'}</span>}
         </div>
@@ -84,7 +84,7 @@ function Card({ item, onEdit, onStatus, compact, dark, draggable, onDragStart })
       <div className="note">{item.notiz || '-'}</div>
       {!compact && (
         <div className="card-actions">
-          <button className="btn small outline print-btn" onClick={() => printJobPdf(item)}>🖨️ PDF</button><button className="btn small outline" onClick={() => onEdit(item)}>Bearbeiten</button><button className="btn small outline" onClick={() => printJobPdf(item)}>PDF</button>
+          <button className="btn small outline" onClick={() => onEdit(item)}>Bearbeiten</button><button className="btn small outline" onClick={() => printJobPdf(item)}>PDF</button>
           {ALL_STATUS.map(s => <button className="btn small outline" key={s} onClick={() => onStatus(item.id, s)}>{s === 'AUFMASS' ? 'Aufmaß' : s.charAt(0) + s.slice(1).toLowerCase()}</button>)}
         </div>
       )}
@@ -138,143 +138,6 @@ function printJobPdf(item) {
   </table><div class="footer"><div><div class="sign">Montage / Produktion</div></div><div><div class="sign">Kontrolle / Freigabe</div></div></div><div class="actions">Über den Druckdialog kann dieser Auftrag als PDF gespeichert oder ausgedruckt werden.</div><script>window.onload=()=>setTimeout(()=>window.print(),300)</script></body></html>`
   win.document.open(); win.document.write(html); win.document.close()
 }
-
-
-function KnowledgeBaseLive() {
-  const [docs, setDocs] = useState([])
-  const [kbSearch, setKbSearch] = useState('')
-  const [category, setCategory] = useState('ALLE')
-  const [title, setTitle] = useState('')
-  const [docCategory, setDocCategory] = useState('Montage Akademie')
-  const [url, setUrl] = useState('')
-  const [file, setFile] = useState(null)
-  const [kbError, setKbError] = useState('')
-  const [kbLoading, setKbLoading] = useState(false)
-
-  const categories = ['Montage Akademie', 'Sicherheitsunterweisung', 'Aufmaß', 'Dokumente & Videos']
-
-  const loadDocs = async () => {
-    setKbLoading(true)
-    const { data, error } = await supabase
-      .from('knowledge_docs')
-      .select('*')
-      .order('created_at', { ascending: false })
-
-    if (error) {
-      setKbError('Wissensdatenbank konnte nicht geladen werden: ' + error.message)
-      setDocs([])
-    } else {
-      setKbError('')
-      setDocs(data || [])
-    }
-    setKbLoading(false)
-  }
-
-  useEffect(() => { loadDocs() }, [])
-
-  const saveDoc = async () => {
-    if (!title.trim()) {
-      setKbError('Bitte Titel eingeben.')
-      return
-    }
-
-    setKbLoading(true)
-    setKbError('')
-    let finalUrl = url
-
-    if (file) {
-      const ext = file.name.split('.').pop() || 'bin'
-      const safeName = file.name.replace(/[^a-zA-Z0-9_.-]/g, '_')
-      const path = `knowledge/${Date.now()}_${safeName}`
-      const { error: upErr } = await supabase.storage
-        .from('uploads')
-        .upload(path, file, { upsert: true, contentType: file.type || 'application/octet-stream' })
-
-      if (upErr) {
-        setKbError('Upload fehlgeschlagen: ' + upErr.message)
-        setKbLoading(false)
-        return
-      }
-
-      const { data } = supabase.storage.from('uploads').getPublicUrl(path)
-      finalUrl = data.publicUrl
-    }
-
-    const { error } = await supabase.from('knowledge_docs').insert({
-      title,
-      category: docCategory,
-      url: finalUrl,
-      file_name: file?.name || '',
-      type: file ? 'file' : 'link'
-    })
-
-    if (error) {
-      setKbError('Speichern fehlgeschlagen: ' + error.message)
-    } else {
-      setTitle('')
-      setUrl('')
-      setFile(null)
-      await loadDocs()
-    }
-    setKbLoading(false)
-  }
-
-  const filteredDocs = docs.filter(d => {
-    const hay = [d.title, d.category, d.file_name, d.url].join(' ').toLowerCase()
-    return (category === 'ALLE' || d.category === category) && (!kbSearch || hay.includes(kbSearch.toLowerCase()))
-  })
-
-  return (
-    <div className="knowledge-live">
-      <div className="hub-hero">
-        <h2>GNANNT Wissensdatenbank</h2>
-        <p>Montageanleitungen, Videos, Sicherheitsunterweisungen, Aufmaß-Vorlagen und interne Dokumente.</p>
-      </div>
-
-      <div className="kb-layout">
-        <div className="kb-panel">
-          <h3>Neuen Eintrag hinzufügen</h3>
-          <input className="input" placeholder="Titel" value={title} onChange={e => setTitle(e.target.value)} />
-          <select className="input" value={docCategory} onChange={e => setDocCategory(e.target.value)}>
-            {categories.map(c => <option key={c}>{c}</option>)}
-          </select>
-          <input className="input" placeholder="Video-Link oder externe URL optional" value={url} onChange={e => setUrl(e.target.value)} />
-          <input className="input" type="file" accept="application/pdf,video/*,image/*" onChange={e => setFile(e.target.files?.[0] || null)} />
-          {file && <div className="tiny">Datei ausgewählt: {file.name}</div>}
-          {kbError && <div className="error">{kbError}</div>}
-          <button className="btn primary full" onClick={saveDoc} disabled={kbLoading}>{kbLoading ? 'Speichert...' : 'Speichern'}</button>
-        </div>
-
-        <div className="kb-panel">
-          <h3>Dokumente / Videos</h3>
-          <div className="kb-filters">
-            <input className="input" placeholder="Suchen..." value={kbSearch} onChange={e => setKbSearch(e.target.value)} />
-            <select className="input" value={category} onChange={e => setCategory(e.target.value)}>
-              <option>ALLE</option>
-              {categories.map(c => <option key={c}>{c}</option>)}
-            </select>
-          </div>
-
-          {kbLoading && <div className="tiny">Lade Wissensdatenbank...</div>}
-          {!kbLoading && filteredDocs.length === 0 && <div className="empty">Noch keine Einträge vorhanden.</div>}
-
-          <div className="kb-list">
-            {filteredDocs.map(doc => (
-              <div className="kb-item" key={doc.id}>
-                <div>
-                  <strong>{doc.title}</strong>
-                  <p>{doc.category} · {doc.file_name || doc.type || 'Link'}</p>
-                </div>
-                {doc.url && <a className="btn small outline" href={doc.url} target="_blank" rel="noreferrer">Öffnen</a>}
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-}
-
 
 function KnowledgeHubPage() {
   const sections = [
@@ -446,6 +309,43 @@ function Calendar({ items, edit }) { const sorted = [...items].sort((a,b) => Str
 function Uploads({ items, edit }) { return <div className="panel"><h3><Upload/> PDF Uploads</h3>{items.map(x => <div className="row bigrow" key={x.id}><div><strong>{x.projekt}</strong><p>{x.attachment_name || 'Noch kein PDF'}</p></div><div className="row-actions">{x.attachment_url && <a className="btn small outline" href={x.attachment_url} target="_blank">Öffnen</a>}<button className="btn small outline" onClick={() => edit(x)}>Bearbeiten</button></div></div>)}</div> }
 function Team({ user, items }) { const ruben = items.filter(x => x.status === 'MONTAGE' || x.lead === 'Ruben'); return <div className="stack"><div className="two"><div className="panel"><h3><Users/> Mitarbeiter Login</h3><p>Aktuell: <strong>{user?.email || '-'}</strong></p><p>Rolle: <strong>{user?.role || 'user'}</strong></p></div><div className="panel"><h3><FolderOpen/> Ruben App</h3><p>Relevante Montageprojekte: <strong>{ruben.length}</strong></p></div></div><div className="grid">{ruben.map(x => <Card key={x.id} item={x} compact />)}</div></div> }
 
+
+function ScreenJobCard({ item }) {
+  return (
+    <div className="screen-job-card">
+      <div className="screen-job-head">
+        <div>
+          <strong>{item.projekt || '-'}</strong>
+          <p>{item.kunde || '-'} · {item.ort || ''}</p>
+        </div>
+        <button className="print-icon-btn" title="Auftrag drucken / PDF" onClick={() => printJobPdf(item)}>🖨️</button>
+      </div>
+      <div className="screen-job-meta">
+        <span>{item.status || '-'}</span>
+        <span>{item.lead || '-'}</span>
+        {item.termin && <span>{item.termin}</span>}
+        {item.mitarbeiter && <span>{item.mitarbeiter}</span>}
+      </div>
+      {item.notiz && <div className="screen-job-note">{item.notiz}</div>}
+    </div>
+  )
+}
+
+function ScreenSplitView({ prodItems, montageItems }) {
+  return (
+    <div className="screen-v3-grid">
+      <section className="screen-col">
+        <div className="screen-col-head">Produktion / Werkstatt</div>
+        {prodItems.length === 0 ? <div className="screen-empty-small">Keine Produktionseinträge</div> : prodItems.map(item => <ScreenJobCard key={item.id} item={item} />)}
+      </section>
+      <section className="screen-col">
+        <div className="screen-col-head">Montage / Monteure</div>
+        {montageItems.length === 0 ? <div className="screen-empty-small">Keine Montageeinträge</div> : montageItems.map(item => <ScreenJobCard key={item.id} item={item} />)}
+      </section>
+    </div>
+  )
+}
+
 export default function App() {
   const [items, setItems] = useState([])
   const [search, setSearch] = useState('')
@@ -514,7 +414,6 @@ export default function App() {
 
   useEffect(() => {
     if (tab !== 'screen') return
-
     const el = screenRef.current
     if (!el) return
 
@@ -524,54 +423,41 @@ export default function App() {
         autoScrollTimerRef.current = null
       }
     }
-
     const clearResume = () => {
       if (autoScrollResumeRef.current) {
         clearTimeout(autoScrollResumeRef.current)
         autoScrollResumeRef.current = null
       }
     }
-
     const startAutoScroll = () => {
       clearAutoScroll()
       autoScrollTimerRef.current = setInterval(() => {
         const maxScroll = el.scrollHeight - el.clientHeight
-
         if (maxScroll <= 8) return
-
         if (el.scrollTop >= maxScroll - 3) {
           clearAutoScroll()
           setTimeout(() => {
             el.scrollTo({ top: 0, behavior: 'smooth' })
-            setTimeout(startAutoScroll, 2500)
+            setTimeout(startAutoScroll, 4500)
           }, 4500)
           return
         }
-
-        el.scrollBy({ top: 0.7, behavior: 'auto' })
-      }, 70)
+        el.scrollBy({ top: 1, behavior: 'auto' })
+      }, 85)
     }
-
     const pauseAutoScroll = () => {
       clearAutoScroll()
       clearResume()
-      autoScrollResumeRef.current = setTimeout(() => {
-        startAutoScroll()
-      }, 45000)
+      autoScrollResumeRef.current = setTimeout(startAutoScroll, 45000)
     }
 
     startAutoScroll()
-
     el.addEventListener('wheel', pauseAutoScroll, { passive: true })
     el.addEventListener('touchstart', pauseAutoScroll, { passive: true })
     el.addEventListener('pointerdown', pauseAutoScroll)
-    el.addEventListener('mouseenter', pauseAutoScroll)
-    el.addEventListener('scroll', () => {}, { passive: true })
 
     autoReloadRef.current = setInterval(() => {
-      if (document.visibilityState === 'visible' && navigator.onLine) {
-        load()
-      }
+      if (document.visibilityState === 'visible' && navigator.onLine) load()
     }, 10 * 60 * 1000)
 
     return () => {
@@ -581,10 +467,10 @@ export default function App() {
       el.removeEventListener('wheel', pauseAutoScroll)
       el.removeEventListener('touchstart', pauseAutoScroll)
       el.removeEventListener('pointerdown', pauseAutoScroll)
-      el.removeEventListener('mouseenter', pauseAutoScroll)
     }
-  }, [tab, active.length, items.length])
+  }, [tab, items.length])
 
+  useEffect(() => { if (tab !== 'screen') return; const el = screenRef.current; if (!el) return; const timer = setInterval(() => { if (el.scrollHeight <= el.clientHeight) return; if (el.scrollTop >= el.scrollHeight - el.clientHeight - 2) el.scrollTop = 0; else el.scrollTop += 1 }, 35); return () => clearInterval(timer) }, [tab, items.length])
 
   const filtered = useMemo(() => items.filter(x => { const text = [x.projekt,x.kunde,x.adresse,x.telefon,x.email_kunde,x.ort,x.gewerk,x.lead,x.status,x.notiz,x.mitarbeiter].join(' ').toLowerCase(); return (!search || text.includes(search.toLowerCase())) && (filterLead === 'ALLE' || x.lead === filterLead) }), [items, search, filterLead])
   const active = filtered.filter(x => x.status !== 'ERLEDIGT')
@@ -752,24 +638,54 @@ export default function App() {
   if (isScreen && !screenUnlocked) return <ScreenLogin screenUser={screenUser} setScreenUser={setScreenUser} screenPassword={screenPassword} setScreenPassword={setScreenPassword} onScreenLogin={screenLogin} error={loginError} />
   const screenDateText = now.toLocaleDateString('de-DE', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' })
   const screenTimeText = now.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })
+  const montageItems = active.filter(x => ['MONTAGE','UNTERWEGS','SERVICE','BAUSTELLE'].includes(String(x.status || '').toUpperCase()) || String(x.lead || '').toUpperCase().includes('RUBEN'))
+  const prodItems = active.filter(x => !montageItems.some(m => String(m.id) === String(x.id)))
 
   if (!user && !isScreen) return <Login username={username} setUsername={setUsername} password={password} setPassword={setPassword} onPlanerLogin={planerLogin} error={loginError} openScreen={openScreen} />
-  if (tab === 'screen') return <div className="screen"><div className="screen-top"><div className="screen-brand"><img src="/gnannt-logo.png" alt="Gnannt" /><div><h1>Gnannt Produktionsplanung</h1><p>Offene Projekte: {active.length}</p></div></div><div className="screen-actions final-topbar">
-          <div className="screen-clock"><strong>{screenDateText}</strong><span>{screenTimeText}</span></div>
+  if (tab === 'screen') return (
+    <div className="screen">
+      <div className="screen-top">
+        <div className="screen-brand">
+          <img src="/gnannt-logo.png" alt="Gnannt" />
+          <div>
+            <h1>Gnannt Produktionsplanung</h1>
+            <p>Offene Projekte: {active.length}</p>
+          </div>
+        </div>
+
+        <div className="screen-actions final-topbar">
+          <div className="screen-clock">
+            <strong>{screenDateText}</strong>
+            <span>{screenTimeText}</span>
+          </div>
           <span className="live autoscroll-badge">AutoScroll</span>
-          <span className={connected ? 'live on' : 'live off'}><Cloud size={14}/>{connected ? 'Live' : 'Offline'}</span>
-          <button className="btn screenbtn icon-only" title="Neu laden" onClick={() => { load() }}><RefreshCw size={18}/></button>
-          <button className="btn screenbtn icon-only" title="Plantafel" onClick={openBoard}><Monitor size={18}/></button>
-          <button className="btn screenbtn icon-only" title="Vollbild" onClick={full}><Maximize size={18}/></button>
-          <button className="btn screenbtn icon-only" title="Screen sperren" onClick={() => { sessionStorage.removeItem('gnannt_screen_unlocked'); setScreenUnlocked(false); setScreenPassword('') }}><LogOut size={18}/></button>
-        </div><div ref={screenRef} className="screen-scroll"><div className="screen-v3-grid">
-      <section className="screen-col">
-        <div className="screen-col-head">Produktion / Werkstatt</div>
-        {shownProd.length === 0 ? <div className="screen-empty-small">Keine Produktionseinträge</div> : shownProd.map(item => <Card key={item.id} item={item} screen />)}
-      </section>
-      <section className="screen-col">
-        <div className="screen-col-head">Montage / Monteure</div>
-        {shownMontage.length === 0 ? <div className="screen-empty-small">Keine Montageeinträge</div> : shownMontage.map(item => <Card key={item.id} item={item} screen />)}
-      </section>
-    </div></div></div>)}{archived.length > 0 && <div className="panel"><h3>Archiv</h3><div className="grid">{archived.map(x => <Card key={x.id} item={x} onEdit={edit} onStatus={updateStatus}/>)}</div></div>}</div> : tab === 'hub' ? <KnowledgeBaseLive/> : tab === 'dashboard' ? <Dashboard active={active} archived={archived}/> : tab === 'kalender' ? <Calendar items={active} edit={edit}/> : tab === 'uploads' ? <Uploads items={items} edit={edit}/> : <Team user={user} items={tab === 'ruben' ? items.filter(x => x.status === 'MONTAGE' || x.lead === 'Ruben') : items}/>}<Modal open={modal} close={() => setModal(false)}><Form form={form} setForm={setForm} save={save} saving={saving} upload={upload} uploading={uploading} pendingFile={pendingFile} setPendingFile={setPendingFile} /></Modal></div></div>
+          <span className={connected ? 'live on' : 'live off'}>
+            <Cloud size={14}/>{connected ? 'Live' : 'Offline'}
+          </span>
+          <button className="btn screenbtn icon-only" title="Neu laden" onClick={() => { load() }}>
+            <RefreshCw size={18}/>
+          </button>
+          <button className="btn screenbtn icon-only" title="Plantafel" onClick={openBoard}>
+            <Monitor size={18}/>
+          </button>
+          <button className="btn screenbtn icon-only" title="Vollbild" onClick={full}>
+            <Maximize size={18}/>
+          </button>
+          <button className="btn screenbtn icon-only" title="Screen sperren" onClick={() => { sessionStorage.removeItem('gnannt_screen_unlocked'); setScreenUnlocked(false); setScreenPassword('') }}>
+            <LogOut size={18}/>
+          </button>
+        </div>
+      </div>
+
+      <div ref={screenRef} className="screen-scroll">
+        {loading ? (
+          <div className="screen-empty">Lade Daten...</div>
+        ) : (
+          <ScreenSplitView prodItems={prodItems} montageItems={montageItems} />
+        )}
+      </div>
+    </div>
+  )
+
+  return <div className="app"><div className="shell"><header><div className="board-brand"><img src="/gnannt-logo.png" alt="Gnannt" /><div><h1>Gnannt Produktionsplanung</h1><p>Produktion & Montage</p></div></div><div className="header-actions"><span className={online ? 'online-pill on' : 'online-pill off'}>{online ? (syncing ? 'Sync läuft' : 'Online') : 'Offline'}</span><button className="btn outline" onClick={() => { load(); syncQueue() }}><RefreshCw size={16}/> Neu laden</button><button className="btn outline" onClick={openScreen}><Monitor size={16}/> Screen</button><button className="btn outline" onClick={logout}><LogOut size={16}/> Abmelden</button><button className="btn primary" onClick={() => { setForm(EMPTY); setPendingFile(null); setModal(true) }}><Plus size={16}/> Neuer Auftrag</button></div></header><div className="stats stats-two"><div className="stat"><p>Offene Projekte</p><strong>{active.length}</strong></div><div className="stat"><p>Datenstatus</p><span><Cloud size={16}/> {online ? (syncing ? 'Synchronisiere...' : (connected ? 'Supabase live verbunden' : 'Online / Verbindung wird geprüft')) : 'Offline-Modus'}</span>{error && <small className="error">{error}</small>}</div></div><div className="toolbar"><div className="search"><Search size={18}/><input value={search} onChange={e => setSearch(e.target.value)} placeholder="Suche nach Projekt, Kunde, Ort oder Verantwortlichem..." /></div><select value={filterLead} onChange={e => setFilterLead(e.target.value)}><option>ALLE</option>{EMPLOYEES.map(x => <option key={x}>{x}</option>)}</select></div><nav>{['planung','hub','dashboard','kalender','uploads','ruben','team'].map(t => <button key={t} className={tab===t ? 'active' : ''} onClick={() => setTab(t)}>{t}</button>)}</nav>{loading ? <div className="panel center">Lade Projekte...</div> : tab === 'planung' ? <div className="stack">{grouped.map(g => <div key={g.status} className="panel" onDragOver={e => e.preventDefault()} onDrop={() => dragged && updateStatus(dragged, g.status)}><div className="panel-head"><h3>{g.status}</h3><span className={badgeClass(g.status)}>{g.items.length}</span></div><p className="tiny">Drag & Drop zwischen Statusbereichen aktiv</p><div className="grid">{g.items.length ? g.items.map(x => <Card key={x.id} item={x} onEdit={edit} onStatus={updateStatus} draggable onDragStart={() => setDragged(x.id)} />) : <div className="empty">Keine offenen Projekte</div>}</div></div>)}{archived.length > 0 && <div className="panel"><h3>Archiv</h3><div className="grid">{archived.map(x => <Card key={x.id} item={x} onEdit={edit} onStatus={updateStatus}/>)}</div></div>}</div> : tab === 'hub' ? <KnowledgeHubPage/> : tab === 'dashboard' ? <Dashboard active={active} archived={archived}/> : tab === 'kalender' ? <Calendar items={active} edit={edit}/> : tab === 'uploads' ? <Uploads items={items} edit={edit}/> : <Team user={user} items={tab === 'ruben' ? items.filter(x => x.status === 'MONTAGE' || x.lead === 'Ruben') : items}/>}<Modal open={modal} close={() => setModal(false)}><Form form={form} setForm={setForm} save={save} saving={saving} upload={upload} uploading={uploading} pendingFile={pendingFile} setPendingFile={setPendingFile} /></Modal></div></div>
 }
