@@ -1,15 +1,25 @@
 {
-  "name": "Gnannt Produktionsplanung",
-  "short_name": "Gnannt",
+  "name": "StockPilot AIx Pharma",
+  "short_name": "StockPilot",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#eef2f7",
-  "theme_color": "#0f172a",
+  "background_color": "#0B1220",
+  "theme_color": "#2071AC",
   "icons": [
     {
-      "src": "/gnannt-logo.png",
+      "src": "/icon-192.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml"
+    },
+    {
+      "src": "/icon-512.svg",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/svg+xml"
+    },
+    {
+      "src": "/apple-touch-icon.svg",
+      "sizes": "180x180",
+      "type": "image/svg+xml"
     }
   ]
 }
