@@ -129,29 +129,6 @@ function formatDateLongDE(value) {
   return d.toLocaleDateString('de-DE', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' })
 }
 
-
-function projectDateTimeValue(item) {
-  const date = item?.termin || item?.created_at || ''
-  const time = item?.uhrzeit || '00:00'
-  const d = new Date(`${date}T${time}`)
-  if (!Number.isNaN(d.getTime())) return d.getTime()
-  return new Date(item?.created_at || 0).getTime()
-}
-
-function formatTimeDE(value) {
-  if (!value) return '-'
-  return String(value).slice(0,5) + ' Uhr'
-}
-
-function formatDateTimeDE(item) {
-  const d = formatDateDE(item?.termin)
-  const t = formatTimeDE(item?.uhrzeit)
-  if (d === '-' && t === '-') return '-'
-  if (d === '-') return t
-  if (t === '-') return d
-  return `${d} · ${t}`
-}
-
 function printJobPdf(item) {
   const esc = (v) => String(v || '-').replace(/[&<>"']/g, (m) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]))
   const win = window.open('', '_blank')
@@ -166,7 +143,7 @@ function printJobPdf(item) {
   <tr><td>Adresse / Baustelle</td><td>${esc(item.adresse || item.ort)}</td></tr>
   <tr><td>Telefon</td><td>${esc(item.telefon)}</td></tr>
   <tr><td>E-Mail</td><td>${esc(item.email_kunde)}</td></tr>
-  <tr><td>Termin</td><td>${esc(formatDateDE(item.termin))}</td></tr><tr><td>Uhrzeit</td><td>${esc(formatTimeDE(item.uhrzeit))}</td></tr>
+  <tr><td>Termin</td><td>${esc(formatDateDE(item.termin))}</td></tr><tr><td>Uhrzeit</td><td>${esc(item.uhrzeit ? item.uhrzeit + ' Uhr' : '-')}</td></tr>
   <tr><td>Verantwortlich</td><td>${esc(item.lead)}</td></tr>
   <tr><td>Mitarbeiter / Team</td><td>${esc(item.mitarbeiter)}</td></tr>
   <tr><td>Status</td><td>${esc(item.status)}</td></tr>
@@ -491,27 +468,11 @@ function Form({ form, setForm, save, saving, upload, uploading, pendingFile, set
 }
 
 function Dashboard({ active, archived }) {
-  const statusCounts = STATUS_ORDER.map(s => ({ s, count: [...active].filter(x => x.status === s).sort((a,b) => new Date(b.created_at || 0) - new Date(a.created_at || 0)).length }))
+  const statusCounts = STATUS_ORDER.map(s => ({ s, count: active.filter(x => x.status === s).length }))
   const leads = active.reduce((a, p) => { const lead = p.lead || 'Ohne Lead'; a[lead] = (a[lead] || 0) + 1; return a }, {})
   return <div className="stack"><div className="stats"><div className="stat"><p>Offene Projekte</p><strong>{active.length}</strong></div><div className="stat"><p>Archivierte Projekte</p><strong>{archived.length}</strong></div><div className="stat"><p>Umsatz</p><strong>-</strong><small>Nicht aktiviert</small></div><div className="stat"><p>Auslastung</p><strong>-</strong><small>Nicht aktiviert</small></div></div><div className="two"><div className="panel"><h3><BarChart3/> Statusübersicht</h3>{statusCounts.map(r => <div className="row" key={r.s}><span className={badgeClass(r.s)}>{r.s}</span><strong>{r.count}</strong></div>)}</div><div className="panel"><h3><Users/> Verantwortliche</h3>{Object.entries(leads).map(([k,v]) => <div className="row" key={k}><span>{k}</span><strong>{v} Projekte</strong></div>)}</div></div></div>
 }
-function Calendar({ items, edit }) {
-  const sorted = [...items].sort((a,b) => projectDateTimeValue(a) - projectDateTimeValue(b))
-  return (
-    <div className="panel">
-      <h3><CalendarDays/> Montageplanung</h3>
-      {sorted.map(x => (
-        <div className="row bigrow" key={x.id}>
-          <div>
-            <strong>{x.projekt}</strong>
-            <p>{x.kunde} · {x.ort} · Termin: {formatDateTimeDE(x)}</p>
-          </div>
-          <button className="btn small outline" onClick={() => edit(x)}>Öffnen</button>
-        </div>
-      ))}
-    </div>
-  )
-}
+function Calendar({ items, edit }) { const sorted = [...items].sort((a,b) => String(a.termin || '9999').localeCompare(String(b.termin || '9999'))); return <div className="panel"><h3><CalendarDays/> Montageplanung</h3>{sorted.map(x => <div className="row bigrow" key={x.id}><div><strong>{x.projekt}</strong><p>{x.kunde} · {x.ort} · Termin: {fmt(x.termin)}</p></div><button className="btn small outline" onClick={() => edit(x)}>Öffnen</button></div>)}</div> }
 function Uploads({ items, edit }) { return <div className="panel"><h3><Upload/> PDF Uploads</h3>{items.map(x => <div className="row bigrow" key={x.id}><div><strong>{x.projekt}</strong><p>{x.attachment_name || 'Noch kein PDF'}</p></div><div className="row-actions">{x.attachment_url && <a className="btn small outline" href={x.attachment_url} target="_blank">Öffnen</a>}<button className="btn small outline" onClick={() => edit(x)}>Bearbeiten</button></div></div>)}</div> }
 function Team({ user, items }) { const ruben = items.filter(x => x.status === 'MONTAGE' || x.lead === 'Ruben'); return <div className="stack"><div className="two"><div className="panel"><h3><Users/> Mitarbeiter Login</h3><p>Aktuell: <strong>{user?.email || '-'}</strong></p><p>Rolle: <strong>{user?.role || 'user'}</strong></p></div><div className="panel"><h3><FolderOpen/> Ruben App</h3><p>Relevante Montageprojekte: <strong>{ruben.length}</strong></p></div></div><div className="grid">{ruben.map(x => <Card key={x.id} item={x} compact />)}</div></div> }
 
@@ -531,7 +492,7 @@ function ScreenJobCard({ item, onStatus }) {
         {item.status !== 'IN_ARBEIT' && <button className="screen-start-btn" onClick={() => onStatus && onStatus(item.id, 'IN_ARBEIT')}>Start / In Bearbeitung</button>}
         <span>{item.lead || '-'}</span>
         {item.termin && <span>{formatDateDE(item.termin)}</span>}
-        {item.uhrzeit && <span>{formatTimeDE(item.uhrzeit)}</span>}
+        {item.uhrzeit && <span>{item.uhrzeit} Uhr</span>}
         {item.mitarbeiter && <span>{item.mitarbeiter}</span>}
       </div>
       {item.notiz && <div className="screen-job-note">{item.notiz}</div>}
@@ -697,7 +658,7 @@ export default function App() {
   const filtered = useMemo(() => items.filter(x => { const text = [x.projekt,x.kunde,x.adresse,x.telefon,x.email_kunde,x.ort,x.gewerk,x.lead,x.status,x.notiz,x.mitarbeiter].join(' ').toLowerCase(); return (!search || text.includes(search.toLowerCase())) && (filterLead === 'ALLE' || x.lead === filterLead) }), [items, search, filterLead])
   const active = filtered.filter(x => x.status !== 'ERLEDIGT')
   const archived = filtered.filter(x => x.status === 'ERLEDIGT')
-  const grouped = STATUS_ORDER.map(s => ({ status: s, items: [...active].filter(x => x.status === s).sort((a,b) => new Date(b.created_at || 0) - new Date(a.created_at || 0)) }))
+  const grouped = STATUS_ORDER.map(s => ({ status: s, items: active.filter(x => x.status === s) }))
   const screenLogin = () => {
     setLoginError('')
     if (screenUser.trim() === 'Screen' && screenPassword === 'Produktion') {
@@ -860,8 +821,8 @@ export default function App() {
   if (isScreen && !screenUnlocked) return <ScreenLogin screenUser={screenUser} setScreenUser={setScreenUser} screenPassword={screenPassword} setScreenPassword={setScreenPassword} onScreenLogin={screenLogin} error={loginError} />
   const screenDateText = now.toLocaleDateString('de-DE', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' })
   const screenTimeText = now.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })
-  const montageItems = [...active].sort((a,b) => new Date(b.created_at || 0) - new Date(a.created_at || 0)).filter(x => ['MONTAGE','UNTERWEGS','SERVICE','BAUSTELLE'].includes(String(x.status || '').toUpperCase()) || String(x.lead || '').toUpperCase().includes('RUBEN'))
-  const prodItems = [...active].sort((a,b) => new Date(b.created_at || 0) - new Date(a.created_at || 0)).filter(x => !montageItems.some(m => String(m.id) === String(x.id)))
+  const montageItems = active.filter(x => ['MONTAGE','UNTERWEGS','SERVICE','BAUSTELLE'].includes(String(x.status || '').toUpperCase()) || String(x.lead || '').toUpperCase().includes('RUBEN'))
+  const prodItems = active.filter(x => !montageItems.some(m => String(m.id) === String(x.id)))
 
   if (!user && !isScreen) return <Login username={username} setUsername={setUsername} password={password} setPassword={setPassword} onPlanerLogin={planerLogin} error={loginError} openScreen={openScreen} />
   if (tab === 'screen') return (

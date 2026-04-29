@@ -1322,8 +1322,3 @@ body.scroll-paused .screen::after{
 
 /* Time planning field */
 .screen-time-field b{color:#0f172a}
-
-/* Visible date/time everywhere */
-.screen-time-field b{
-  color:#0f172a;
-}
