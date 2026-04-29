@@ -1297,3 +1297,28 @@ body.scroll-paused .screen::after{
 @media(max-width:767px){
   .hub-card-button{min-height:auto}
 }
+
+/* Screen: Start / In Bearbeitung */
+.screen-start-btn{
+  border:0;
+  background:#0f172a;
+  color:white;
+  border-radius:999px;
+  padding:7px 12px;
+  font-weight:900;
+  font-size:13px;
+  cursor:pointer;
+}
+.screen-start-btn:hover{
+  transform:translateY(-1px);
+}
+@media(max-width:767px){
+  .screen-start-btn{
+    width:100%;
+    border-radius:12px;
+    padding:10px;
+  }
+}
+
+/* Time planning field */
+.screen-time-field b{color:#0f172a}

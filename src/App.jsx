@@ -47,7 +47,7 @@ const STATUS_ORDER = ['AUFMASS', 'KONSTRUKTION', 'PRODUKTION', 'MONTAGE']
 const ALL_STATUS = ['AUFMASS', 'KONSTRUKTION', 'PRODUKTION', 'MONTAGE', 'ERLEDIGT']
 const EMPLOYEES = ['Ruben', 'Edmund', 'Gerold', 'Samuel', 'Jonathan', 'Waldemar']
 
-const EMPTY = { id: null, projekt: '', kunde: '', ort: '', adresse: '', telefon: '', email_kunde: '', gewerk: '', lead: 'Edmund', mitarbeiter: '', status: 'AUFMASS', termin: '', prioritaet: 'Mittel', notiz: '', attachment_name: '', attachment_url: '', push_enabled: false }
+const EMPTY = { id: null, projekt: '', kunde: '', ort: '', adresse: '', telefon: '', email_kunde: '', gewerk: '', lead: 'Edmund', mitarbeiter: '', status: 'AUFMASS', termin: '', uhrzeit: '', prioritaet: 'Mittel', notiz: '', attachment_name: '', attachment_url: '', push_enabled: false }
 
 function badgeClass(status, dark = false) {
   const s = (status || 'AUFMASS').toLowerCase()
@@ -107,6 +107,7 @@ function toDbProject(form) {
     mitarbeiter: form.mitarbeiter || '',
     status: form.status || 'AUFMASS',
     termin: form.termin || null,
+    uhrzeit: form.uhrzeit || null,
     prioritaet: form.prioritaet || 'Mittel',
     notiz: form.notiz || '',
     attachment_name: form.attachment_name || '',
@@ -142,7 +143,7 @@ function printJobPdf(item) {
   <tr><td>Adresse / Baustelle</td><td>${esc(item.adresse || item.ort)}</td></tr>
   <tr><td>Telefon</td><td>${esc(item.telefon)}</td></tr>
   <tr><td>E-Mail</td><td>${esc(item.email_kunde)}</td></tr>
-  <tr><td>Termin</td><td>${esc(item.termin)}</td></tr>
+  <tr><td>Termin</td><td>${esc(formatDateDE(item.termin))}</td></tr><tr><td>Uhrzeit</td><td>${esc(item.uhrzeit ? item.uhrzeit + ' Uhr' : '-')}</td></tr>
   <tr><td>Verantwortlich</td><td>${esc(item.lead)}</td></tr>
   <tr><td>Mitarbeiter / Team</td><td>${esc(item.mitarbeiter)}</td></tr>
   <tr><td>Status</td><td>${esc(item.status)}</td></tr>
@@ -446,7 +447,8 @@ function Form({ form, setForm, save, saving, upload, uploading, pendingFile, set
         <select className="input" value={form.status || 'AUFMASS'} onChange={e => set('status', e.target.value)}>{ALL_STATUS.map(x => <option key={x}>{x}</option>)}</select>
         <input className="input" placeholder="Mitarbeiter / Team" value={form.mitarbeiter || ''} onChange={e => set('mitarbeiter', e.target.value)} />
         <input className="input" type="date" value={form.termin || ''} onChange={e => set('termin', e.target.value)} />
-        <textarea className="input textarea" placeholder="Notiz / Besonderheiten" value={form.notiz || ''} onChange={e => set('notiz', e.target.value)} />
+        <input className="input" type="time" value={form.uhrzeit || ''} onChange={e => setForm({...form, uhrzeit:e.target.value})} />
+      <textarea className="input textarea" placeholder="Notiz / Besonderheiten" value={form.notiz || ''} onChange={e => set('notiz', e.target.value)} />
       </div>
       <div className="upload-box">
         <strong><Upload size={16}/> PDF hochladen</strong>
@@ -475,7 +477,7 @@ function Uploads({ items, edit }) { return <div className="panel"><h3><Upload/> 
 function Team({ user, items }) { const ruben = items.filter(x => x.status === 'MONTAGE' || x.lead === 'Ruben'); return <div className="stack"><div className="two"><div className="panel"><h3><Users/> Mitarbeiter Login</h3><p>Aktuell: <strong>{user?.email || '-'}</strong></p><p>Rolle: <strong>{user?.role || 'user'}</strong></p></div><div className="panel"><h3><FolderOpen/> Ruben App</h3><p>Relevante Montageprojekte: <strong>{ruben.length}</strong></p></div></div><div className="grid">{ruben.map(x => <Card key={x.id} item={x} compact />)}</div></div> }
 
 
-function ScreenJobCard({ item }) {
+function ScreenJobCard({ item, onStatus }) {
   return (
     <div className="screen-job-card">
       <div className="screen-job-head">
@@ -487,8 +489,10 @@ function ScreenJobCard({ item }) {
       </div>
       <div className="screen-job-meta">
         <span>{item.status || '-'}</span>
+        {item.status !== 'IN_ARBEIT' && <button className="screen-start-btn" onClick={() => onStatus && onStatus(item.id, 'IN_ARBEIT')}>Start / In Bearbeitung</button>}
         <span>{item.lead || '-'}</span>
-        {item.termin && <span>{item.termin}</span>}
+        {item.termin && <span>{formatDateDE(item.termin)}</span>}
+        {item.uhrzeit && <span>{item.uhrzeit} Uhr</span>}
         {item.mitarbeiter && <span>{item.mitarbeiter}</span>}
       </div>
       {item.notiz && <div className="screen-job-note">{item.notiz}</div>}
@@ -496,16 +500,16 @@ function ScreenJobCard({ item }) {
   )
 }
 
-function ScreenSplitView({ prodItems, montageItems }) {
+function ScreenSplitView({ prodItems, montageItems, onStatus }) {
   return (
     <div className="screen-v3-grid">
       <section className="screen-col">
         <div className="screen-col-head">Produktion / Werkstatt</div>
-        {prodItems.length === 0 ? <div className="screen-empty-small">Keine Produktionseinträge</div> : prodItems.map(item => <ScreenJobCard key={item.id} item={item} />)}
+        {prodItems.length === 0 ? <div className="screen-empty-small">Keine Produktionseinträge</div> : prodItems.map(item => <ScreenJobCard key={item.id} item={item} onStatus={onStatus} />)}
       </section>
       <section className="screen-col">
         <div className="screen-col-head">Montage / Monteure</div>
-        {montageItems.length === 0 ? <div className="screen-empty-small">Keine Montageeinträge</div> : montageItems.map(item => <ScreenJobCard key={item.id} item={item} />)}
+        {montageItems.length === 0 ? <div className="screen-empty-small">Keine Montageeinträge</div> : montageItems.map(item => <ScreenJobCard key={item.id} item={item} onStatus={onStatus} />)}
       </section>
     </div>
   )
@@ -860,7 +864,7 @@ export default function App() {
         {loading ? (
           <div className="screen-empty">Lade Daten...</div>
         ) : (
-          <ScreenSplitView prodItems={prodItems} montageItems={montageItems} />
+          <ScreenSplitView prodItems={prodItems} montageItems={montageItems} onStatus={updateStatus} />
         )}
       </div>
     </div>
