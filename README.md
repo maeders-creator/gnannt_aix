@@ -1,47 +1,13 @@
-# GNANNT_AIx
+# StockPilot AIx Pharma V5.8 Layout & Import Fix
 
-Vercel-ready React + TypeScript app for GNANNT_AIx.
+Fixes:
+- KPI cards scale flexibly; stock value should no longer be cut off.
+- CSV upload now shows import status and processes directly after selecting file.
+- Machines no longer stay in split view after selection: machine list -> select -> linked spare parts only.
+- Original logo attempt: fallback SVG/text logo.
+- Same Supabase V5 tables, no migration required.
 
-## Setup
-
-1. Upload/import this project to Vercel.
-2. Set environment variables in Vercel:
-   - `VITE_SUPABASE_URL`
-   - `VITE_SUPABASE_ANON_KEY`
-
-Already prefilled fallback values exist in the code, but Vercel env vars are recommended.
-
-## Supabase
-
-Required table: `public.projects`
-
-Existing columns expected:
-- id
-- created_at
-- projekt
-- kunde
-- ort
-- gewerk
-- lead
-- mitarbeiter
-- status
-- termin
-- prioritaet
-- notiz
-- attachment_name
-- attachment_url
-- push_enabled
-
-Required Storage bucket:
-- `gnannt-aix-files`
-
-For public read + frontend upload, add storage policies if upload fails.
-
-## URLs
-
-Planning app:
-- https://gnannt-planung.alb-stolz.de
-
-Screen:
-- https://gnannt-planung.alb-stolz.de/#screen
-update
+Deploy:
+1. Replace GitHub files completely.
+2. Vercel -> Redeploy without build cache.
+3. Hard refresh / private tab on iPad.

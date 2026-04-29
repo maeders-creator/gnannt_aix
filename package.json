@@ -1,19 +1,20 @@
 {
-  "name": "gnannt-aix-board",
+  "name": "stockpilot-aix-pharma",
   "private": true,
-  "version": "3.0.0",
+  "version": "5.8.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "vite --host 0.0.0.0",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview --host 0.0.0.0"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.48.1",
-    "@vitejs/plugin-react": "^4.3.4",
-    "vite": "^5.4.11",
+    "@supabase/supabase-js": "^2.45.4",
+    "@vitejs/plugin-react": "^4.3.1",
+    "vite": "^5.4.8",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "lucide-react": "^0.468.0"
-  }
+  },
+  "devDependencies": {}
 }
