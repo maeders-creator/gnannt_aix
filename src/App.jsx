@@ -248,7 +248,7 @@ function KnowledgeBaseLive() {
     if (file) {
       const safeName = file.name.replace(/[^a-zA-Z0-9_.-]/g, '_')
       const path = `knowledge/${Date.now()}_${safeName}`
-      const { error: upErr } = await supabase.storage.from('uploads').upload(path, file, { upsert: true, contentType: file.type || 'application/octet-stream' })
+      const { error: upErr } = await supabase.storage.from('uploads').upload(path, file, { upsert: false, contentType: file.type || 'application/octet-stream' })
 
       if (upErr) {
         setKbError('Upload fehlgeschlagen: ' + upErr.message)
@@ -809,7 +809,13 @@ export default function App() {
     }
 
     if (pendingFile && savedId) {
-      await upload(pendingFile, savedId)
+      // Keep the saved ID so a failed upload can be retried without creating another order.
+      setForm(p => ({ ...p, id: savedId }))
+      const uploaded = await upload(pendingFile, savedId)
+      if (!uploaded) {
+        setSaving(false)
+        return
+      }
     }
 
     setModal(false)
@@ -847,7 +853,7 @@ export default function App() {
 
     const { error: upErr } = await supabase.storage
       .from(STORAGE_BUCKET)
-      .upload(path, file, { upsert: true, contentType: file.type || 'application/pdf' })
+      .upload(path, file, { upsert: false, contentType: file.type || 'application/pdf' })
 
     if (upErr) {
       setError('PDF Upload fehlgeschlagen: ' + upErr.message)
