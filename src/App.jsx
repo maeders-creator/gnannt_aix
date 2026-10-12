@@ -2,6 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { createClient } from '@supabase/supabase-js'
 import ProjectTodos from './ProjectTodos'
 import { appendProjectComment, completeProject } from './projectTodos'
+import ProductionWeek, { PlannerTeamPicker, useScreenAutoScroll } from './ProductionWeek'
+import { currentProductionWeek, productionWeekItems, screenDate } from './productionWeek'
 import {CalendarDays, Plus, Search, Hammer, User, MapPin, ClipboardList, Monitor, LockKeyhole, LogOut, Maximize, Paperclip, Bell, Tablet, GripVertical, Moon, RefreshCw, Cloud, BarChart3, Upload, Users, FolderOpen, X} from 'lucide-react'
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 'https://zsgvqpikwhawodhvhdeq.supabase.co'
@@ -492,9 +494,9 @@ function Form({ form, setForm, save, saving, upload, uploading, pendingFile, set
         <input className="input" placeholder="Ort" value={form.ort || ''} onChange={e => set('ort', e.target.value)} />
         <input className="input" placeholder="Telefon Kunde" value={form.telefon || ''} onChange={e => set('telefon', e.target.value)} />
         <input className="input" placeholder="E-Mail Kunde" value={form.email_kunde || ''} onChange={e => set('email_kunde', e.target.value)} />
-        <select className="input" value={form.lead || 'Edmund'} onChange={e => set('lead', e.target.value)}>{EMPLOYEES.map(x => <option key={x}>{x}</option>)}</select>
+        <select className="input" aria-label="Verantwortlich" value={form.lead || 'Edmund'} onChange={e => set('lead', e.target.value)}>{EMPLOYEES.map(x => <option key={x}>{x}</option>)}</select>
         <select className="input" value={form.status || 'AUFMASS'} onChange={e => set('status', e.target.value)}>{ALL_STATUS.map(x => <option key={x}>{x}</option>)}</select>
-        <input className="input" placeholder="Mitarbeiter / Team" value={form.mitarbeiter || ''} onChange={e => set('mitarbeiter', e.target.value)} />
+        <PlannerTeamPicker value={form.mitarbeiter} onChange={value => set('mitarbeiter', value)} employees={EMPLOYEES} disabled={saving} />
         <input className="input" type="date" value={form.termin || ''} onChange={e => set('termin', e.target.value)} />
         <input className="input" type="time" value={form.uhrzeit || ''} onChange={e => setForm({...form, uhrzeit:e.target.value})} />
       <textarea className="input textarea" placeholder="Notiz / Besonderheiten" value={form.notiz || ''} onChange={e => set('notiz', e.target.value)} />
@@ -543,43 +545,6 @@ function Uploads({ items, edit }) { return <div className="panel"><h3><Upload/> 
 function Team({ user, items }) { const ruben = items.filter(x => x.status === 'MONTAGE' || x.lead === 'Ruben'); return <div className="stack"><div className="two"><div className="panel"><h3><Users/> Mitarbeiter Login</h3><p>Aktuell: <strong>{user?.email || '-'}</strong></p><p>Rolle: <strong>{user?.role || 'user'}</strong></p></div><div className="panel"><h3><FolderOpen/> Ruben App</h3><p>Relevante Montageprojekte: <strong>{ruben.length}</strong></p></div></div><div className="grid">{ruben.map(x => <Card key={x.id} item={x} compact />)}</div></div> }
 
 
-function ScreenJobCard({ item, onStatus }) {
-  return (
-    <div className="screen-job-card">
-      <div className="screen-job-head">
-        <div>
-          <strong>{item.projekt || '-'}</strong>
-          <p>{item.kunde || '-'} · {item.ort || ''}</p>
-        </div>
-        <button className="print-icon-btn" title="Auftrag drucken / PDF" onClick={() => printJobPdf(item)}>🖨️</button>
-      </div>
-      <div className="screen-job-meta">
-        <span>{item.status || '-'}</span>
-        {item.status !== 'IN_ARBEIT' && <button className="screen-start-btn" onClick={() => onStatus && onStatus(item.id, 'IN_ARBEIT')}>Start / In Bearbeitung</button>}
-        <span>{item.lead || '-'}</span>
-        {item.termin && <span>{formatDateTimeDE(item)}</span>}
-        {item.mitarbeiter && <span>{item.mitarbeiter}</span>}
-      </div>
-      {item.notiz && <div className="screen-job-note">{item.notiz}</div>}
-    </div>
-  )
-}
-
-function ScreenSplitView({ prodItems, montageItems, onStatus }) {
-  return (
-    <div className="screen-v3-grid">
-      <section className="screen-col">
-        <div className="screen-col-head">Produktion / Werkstatt</div>
-        {prodItems.length === 0 ? <div className="screen-empty-small">Keine Produktionseinträge</div> : prodItems.map(item => <ScreenJobCard key={item.id} item={item} onStatus={onStatus} />)}
-      </section>
-      <section className="screen-col">
-        <div className="screen-col-head">Montage / Monteure</div>
-        {montageItems.length === 0 ? <div className="screen-empty-small">Keine Montageeinträge</div> : montageItems.map(item => <ScreenJobCard key={item.id} item={item} onStatus={onStatus} />)}
-      </section>
-    </div>
-  )
-}
-
 export default function App() {
   const [items, setItems] = useState([])
   const [search, setSearch] = useState('')
@@ -608,12 +573,12 @@ export default function App() {
   const [dragged, setDragged] = useState(null)
   const screenRef = useRef(null)
   const loadVersion = useRef(0)
-  const autoScrollTimerRef = useRef(null)
-  const autoScrollResumeRef = useRef(null)
-  const autoReloadRef = useRef(null)
   const [now, setNow] = useState(new Date())
 
   const isScreen = window.location.hash === PUBLIC_SCREEN_HASH
+  const week = currentProductionWeek(now)
+  const weekItems = useMemo(() => productionWeekItems(items, week), [items, week.start, week.end])
+  useScreenAutoScroll(screenRef, tab === 'screen' && (!isScreen || screenUnlocked), week.start)
   const load = async ({ silent = false } = {}) => {
     const version = ++loadVersion.current
     if (!silent) setLoading(true)
@@ -651,7 +616,7 @@ export default function App() {
     applyTodoProject(await completeProject(supabase, { ...project, status: 'ERLEDIGT' }, project.status || 'AUFMASS'))
   }
   useEffect(() => {
-    if (tab !== 'todos') return
+    if (tab !== 'todos' && tab !== 'screen') return
     const refresh = () => { if (navigator.onLine && document.visibilityState === 'visible') load({ silent: true }) }
     refresh()
     const timer = setInterval(refresh, 30000)
@@ -673,80 +638,6 @@ export default function App() {
   useEffect(() => { const channel = supabase.channel('projects-live').on('postgres_changes', { event: '*', schema: 'public', table: 'projects' }, () => load({ silent: true })).subscribe(s => setConnected(s === 'SUBSCRIBED')); return () => supabase.removeChannel(channel) }, [])
   useEffect(() => { const onHash = () => { if (window.location.hash === PUBLIC_SCREEN_HASH) setTab('screen') }; window.addEventListener('hashchange', onHash); return () => window.removeEventListener('hashchange', onHash) }, [])
   useEffect(() => { const timer = setInterval(() => setNow(new Date()), 1000); return () => clearInterval(timer) }, [])
-
-  useEffect(() => {
-    if (tab !== 'screen') return
-    const el = screenRef.current
-    if (!el) return
-
-    const clearAutoScroll = () => {
-      if (autoScrollTimerRef.current) {
-        clearInterval(autoScrollTimerRef.current)
-        autoScrollTimerRef.current = null
-      }
-    }
-
-    const clearResume = () => {
-      if (autoScrollResumeRef.current) {
-        clearTimeout(autoScrollResumeRef.current)
-        autoScrollResumeRef.current = null
-      }
-    }
-
-    const startAutoScroll = () => {
-      clearAutoScroll()
-      autoScrollTimerRef.current = setInterval(() => {
-        if (!screenRef.current) return
-        const maxScroll = el.scrollHeight - el.clientHeight
-        if (maxScroll <= 8) return
-
-        if (el.scrollTop >= maxScroll - 5) {
-          clearAutoScroll()
-          setTimeout(() => {
-            el.scrollTo({ top: 0, behavior: 'smooth' })
-            setTimeout(startAutoScroll, 12000)
-          }, 12000)
-          return
-        }
-
-        el.scrollTop = el.scrollTop + 1
-      }, 600)
-    }
-
-    const pauseAutoScroll = () => {
-      clearAutoScroll()
-      clearResume()
-      document.body.classList.add('scroll-paused')
-      autoScrollResumeRef.current = setTimeout(() => {
-        document.body.classList.remove('scroll-paused')
-        startAutoScroll()
-      }, 180000)
-    }
-
-    const targets = [el, window, document, document.body]
-    const events = ['touchstart', 'touchmove', 'pointerdown', 'pointermove', 'mousedown', 'wheel', 'keydown', 'click']
-    targets.forEach(target => {
-      events.forEach(evt => target.addEventListener(evt, pauseAutoScroll, { passive: true }))
-    })
-
-    startAutoScroll()
-
-    autoReloadRef.current = setInterval(() => {
-      if (document.visibilityState === 'visible' && navigator.onLine) load()
-    }, 10 * 60 * 1000)
-
-    return () => {
-      clearAutoScroll()
-      clearResume()
-      document.body.classList.remove('scroll-paused')
-      if (autoReloadRef.current) clearInterval(autoReloadRef.current)
-      targets.forEach(target => {
-        events.forEach(evt => target.removeEventListener(evt, pauseAutoScroll))
-      })
-    }
-  }, [tab, items.length])
-
-  useEffect(() => { if (tab !== 'screen') return; const el = screenRef.current; if (!el) return; const timer = setInterval(() => { if (el.scrollHeight <= el.clientHeight) return; if (el.scrollTop >= el.scrollHeight - el.clientHeight - 2) el.scrollTop = 0; else el.scrollTop += 1 }, 35); return () => clearInterval(timer) }, [tab, items.length])
 
   const filtered = useMemo(() => items.filter(x => { const text = [x.projekt,x.kunde,x.adresse,x.telefon,x.email_kunde,x.ort,x.gewerk,x.lead,x.status,x.notiz,x.mitarbeiter].join(' ').toLowerCase(); return (!search || text.includes(search.toLowerCase())) && (filterLead === 'ALLE' || x.lead === filterLead) }), [items, search, filterLead])
   const active = filtered.filter(x => x.status !== 'ERLEDIGT')
@@ -913,24 +804,21 @@ export default function App() {
   }
 
   const openScreen = () => { window.location.hash = PUBLIC_SCREEN_HASH; setTab('screen') }
-  const openBoard = () => { window.location.hash = ''; setTab('planung') }
+  const openBoard = () => { window.location.hash = '#buero'; setTab('planung') }
   const full = async () => { try { if (!document.fullscreenElement) await document.documentElement.requestFullscreen(); else await document.exitFullscreen() } catch {} }
 
   if (isScreen && !screenUnlocked) return <ScreenLogin screenUser={screenUser} setScreenUser={setScreenUser} screenPassword={screenPassword} setScreenPassword={setScreenPassword} onScreenLogin={screenLogin} error={loginError} />
-  const screenDateText = now.toLocaleDateString('de-DE', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' })
-  const screenTimeText = now.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })
-  const montageItems = [...active].sort((a,b) => new Date(b.created_at || 0) - new Date(a.created_at || 0)).filter(x => ['MONTAGE','UNTERWEGS','SERVICE','BAUSTELLE'].includes(String(x.status || '').toUpperCase()) || String(x.lead || '').toUpperCase().includes('RUBEN'))
-  const prodItems = [...active].sort((a,b) => new Date(b.created_at || 0) - new Date(a.created_at || 0)).filter(x => !montageItems.some(m => String(m.id) === String(x.id)))
-
+  const screenDateText = now.toLocaleDateString('de-DE', { timeZone: 'Europe/Berlin', weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' })
+  const screenTimeText = now.toLocaleTimeString('de-DE', { timeZone: 'Europe/Berlin', hour: '2-digit', minute: '2-digit' })
   if (!user && !isScreen) return <Login username={username} setUsername={setUsername} password={password} setPassword={setPassword} onPlanerLogin={planerLogin} error={loginError} openScreen={openScreen} />
   if (tab === 'screen') return (
-    <div className="screen">
+    <div className="screen week-screen">
       <div className="screen-top">
         <div className="screen-brand">
           <img src="/gnannt-logo.png" alt="Gnannt" />
           <div>
-            <h1>Gnannt Produktionsplanung</h1>
-            <p>Offene Projekte: {active.length}</p>
+            <h1>Gnannt · Wer ist wo?</h1>
+            <p>Aktuelle Woche · {screenDate(week.start)} – {screenDate(week.end)} · Produktion & Montage</p>
           </div>
         </div>
 
@@ -941,7 +829,7 @@ export default function App() {
           </div>
           
           <span className={connected ? 'live on' : 'live off'}>
-            <Cloud size={14}/>{connected ? 'Live' : 'Offline'}
+            <Cloud size={14}/>{connected ? 'Live' : online ? 'Verbindung prüfen' : 'Offline'}
           </span>
           <button className="btn screenbtn icon-only" title="Neu laden" onClick={() => { load() }}>
             <RefreshCw size={18}/>
@@ -958,11 +846,12 @@ export default function App() {
         </div>
       </div>
 
+      {error && <div className="screen-data-error" role="alert">{error}</div>}
       <div ref={screenRef} className="screen-scroll">
-        {loading ? (
+        {loading && !items.length ? (
           <div className="screen-empty">Lade Daten...</div>
         ) : (
-          <ScreenSplitView prodItems={prodItems} montageItems={montageItems} onStatus={updateStatus} />
+          <ProductionWeek items={weekItems} week={week} online={online} onComplete={finishTodo} onUndo={undoTodo} onStart={async item => { if (!navigator.onLine) throw new Error('Bitte zum Speichern wieder online gehen.'); applyTodoProject(await completeProject(supabase, item, 'IN_ARBEIT')) }} />
         )}
       </div>
     </div>
