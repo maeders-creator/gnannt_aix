@@ -1,0 +1,14 @@
+{
+  "id": "/monteure",
+  "name": "Gnannt Monteure",
+  "short_name": "Gnannt",
+  "description": "Aufträge einstellen, kommentieren und gemeinsam erledigen.",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f1f4f8",
+  "theme_color": "#17243a",
+  "icons": [
+    { "src": "/monteur-icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/monteur-icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}

@@ -78,6 +78,7 @@ function Card({ item, onEdit, onStatus, compact, dark, draggable, onDragStart })
         <div><ClipboardList size={16} /> {fmt(item.adresse || item.ort)}</div>
         {item.telefon && <div><User size={16} /> Tel.: {item.telefon}</div>}
         {item.email_kunde && <div><User size={16} /> E-Mail: {item.email_kunde}</div>}
+        <div><User size={16} /> Eingestellt von: {item.created_by_name || 'Bestand · nicht erfasst'}</div>
         <div><User size={16} /> {fmt(item.lead)}</div>
         <div><Hammer size={16} /> {fmt(item.mitarbeiter)}</div>
         <div><CalendarDays size={16} /> Termin: {formatDateTimeDE(item)}</div>
@@ -483,6 +484,7 @@ function Form({ form, setForm, save, saving, upload, uploading, pendingFile, set
   return (
     <div>
       <h2>Auftrag anlegen / bearbeiten</h2>
+      {form.id && <p className="tiny">Eingestellt von: {form.created_by_name || 'Bestand · nicht erfasst'}</p>}
       <div className="form-grid">
         <input className="input" placeholder="Projekt" value={form.projekt || ''} onChange={e => set('projekt', e.target.value)} />
         <input className="input" placeholder="Kunde" value={form.kunde || ''} onChange={e => set('kunde', e.target.value)} />
