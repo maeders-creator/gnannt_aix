@@ -46,9 +46,9 @@ function TodoRow({ item, today, author, onComment, onComplete, onReopen, onEdit,
   </article>
 }
 
-export default function ProjectTodos({ items, employees, online, onComment, onComplete, onReopen, onUndo, onEdit, onAdd, fixedAuthor }) {
+export default function ProjectTodos({ items, employees, online, onComment, onComplete, onReopen, onUndo, onEdit, onAdd, fixedAuthor, personalName = fixedAuthor }) {
   const [filter, setFilter] = useState('open')
-  const [team, setTeam] = useState(() => fixedAuthor || 'ALLE')
+  const [team, setTeam] = useState(() => personalName || 'ALLE')
   const [search, setSearch] = useState('')
   const [selectedAuthor, setAuthor] = useState(() => { try { return localStorage.getItem('gnannt_todo_author') || '' } catch { return '' } })
   const author = fixedAuthor || selectedAuthor
@@ -72,8 +72,8 @@ export default function ProjectTodos({ items, employees, online, onComment, onCo
   const filters = [['open', 'Alle offen', scopedOpen.length], ['today', 'Heute'], ['week', 'Diese Woche'], ['overdue', 'Überfällig', scopedOpen.filter(p => p.termin && p.termin < today).length], ['undated', 'Ohne Termin', scopedOpen.filter(p => !p.termin).length], ['done', 'Erledigt']]
   const showAll = () => { setFilter('open'); setTeam('ALLE'); setSearch(''); setNewProjects([]) }
   return <section className="project-todos" aria-label="Projekt-To-do-Liste">
-    <div className="todo-heading"><div><h2>{fixedAuthor && team === fixedAuthor ? 'Meine Jobs' : 'Projekt-To-dos'}</h2><p>{fixedAuthor && team === fixedAuthor ? 'Deine Aufträge als Verantwortlicher oder im Mitarbeiterteam. Was zuerst fällig ist, steht oben.' : 'Überfälliges zuerst, danach Termin und Uhrzeit. Bei gleichem Termin zählt die Priorität.'}</p></div><button className="btn primary" onClick={onAdd}><Plus size={16}/> Projekt hinzufügen</button></div>
-    {fixedAuthor && <div className="todo-personal-tabs" aria-label="Auftragsansicht"><button aria-pressed={team === fixedAuthor} onClick={() => { setTeam(fixedAuthor); setFilter('open'); setSearch('') }}>Meine Jobs</button><button aria-pressed={team === 'ALLE'} onClick={showAll}>Alle Projekte</button></div>}
+    <div className="todo-heading"><div><h2>{personalName && team === personalName ? 'Meine Jobs' : 'Projekt-To-dos'}</h2><p>{personalName && team === personalName ? 'Deine Aufträge als Verantwortlicher oder im Mitarbeiterteam. Was zuerst fällig ist, steht oben.' : 'Überfälliges zuerst, danach Termin und Uhrzeit. Bei gleichem Termin zählt die Priorität.'}</p></div><button className="btn primary" onClick={onAdd}><Plus size={16}/> Projekt hinzufügen</button></div>
+    {personalName && <div className="todo-personal-tabs" aria-label="Auftragsansicht"><button aria-pressed={team === personalName} onClick={() => { setTeam(personalName); setFilter('open'); setSearch('') }}>Meine Jobs</button><button aria-pressed={team === 'ALLE'} onClick={showAll}>Alle Projekte</button></div>}
     <div className="todo-controls">
       <div className="todo-filters">{filters.map(([value, label, count]) => <button key={value} className={filter === value ? 'selected' : ''} aria-pressed={filter === value} onClick={() => setFilter(value)}>{label}{count !== undefined && <span>{count}</span>}</button>)}</div>
       <div className="todo-inputs"><label className="todo-search"><Search size={17}/><input aria-label="To-dos durchsuchen" placeholder="Projekt, Kunde, Ort, Kommentar…" value={search} onChange={e => setSearch(e.target.value)}/></label><label>Team<select aria-label="Team filtern" value={team} onChange={e => setTeam(e.target.value)}><option value="ALLE">Alle Mitarbeiter</option>{employees.map(name => <option key={name}>{name}</option>)}</select></label>{fixedAuthor ? <div className="todo-author-fixed">Kommentar von<strong>{fixedAuthor}</strong></div> : <label>Kommentar von<select aria-label="Kommentar von" value={author} onChange={e => { setAuthor(e.target.value); try { localStorage.setItem('gnannt_todo_author', e.target.value) } catch {} }}><option value="">Namen wählen</option>{employees.map(name => <option key={name}>{name}</option>)}</select></label>}</div>

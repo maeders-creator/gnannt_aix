@@ -43,3 +43,12 @@ test('metadata edits are restricted and attributed, while creator, comments and 
   assert.throws(() => editProjectPayload({ changes: { telefon: '123' } }, current, actor))
   assert.throws(() => editProjectPayload({ version: 2, changes: {} }, current, actor))
 })
+
+test('shared company phone is credited as creator while work is assigned to actual colleagues', () => {
+  const phone = { id: actor.id, name: 'Geschäftshandy' }
+  const row = newProjectPayload({ ...input, lead: 'Ruben', team: ['Ruben', 'Jonathan'] }, phone)
+  assert.equal(row.created_by_name, 'Geschäftshandy')
+  assert.equal(row.lead, 'Ruben')
+  assert.equal(row.mitarbeiter, 'Ruben, Jonathan')
+  assert.throws(() => newProjectPayload({ ...input, lead: '', team: [] }, phone), /Verantwortlichen/)
+})
