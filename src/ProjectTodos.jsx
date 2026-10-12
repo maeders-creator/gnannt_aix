@@ -24,6 +24,7 @@ function TodoRow({ item, today, author, onComment, onComplete, onEdit, disabled 
       <div className="todo-project">
         <div className="todo-title"><button onClick={() => onEdit(item)}>{item.projekt || 'Ohne Projektname'}</button>{recent && !done && <span className="todo-new">Neu</span>}</div>
         <span>{[item.kunde, item.ort || item.adresse].filter(Boolean).join(' · ') || 'Kunde / Ort noch offen'}</span>
+        <span className="todo-creator">Eingestellt von: {item.created_by_name || 'Bestand · nicht erfasst'}</span>
         {lastNote && <button className="todo-note-preview" onClick={() => setExpanded(!expanded)}><MessageSquare size={13}/>{lastNote}</button>}
       </div>
       <div className={`todo-date ${overdue ? 'todo-overdue' : ''}`}><strong>{item.termin ? new Date(`${item.termin}T12:00:00`).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' }) : 'Ohne Termin'}</strong><small>{overdue ? 'Überfällig' : item.uhrzeit?.slice(0, 5) || (createdDay ? `Angelegt: ${new Date(`${createdDay}T12:00:00`).toLocaleDateString('de-DE')}` : 'Termin offen')}</small></div>
@@ -44,11 +45,12 @@ function TodoRow({ item, today, author, onComment, onComplete, onEdit, disabled 
   </article>
 }
 
-export default function ProjectTodos({ items, employees, online, onComment, onComplete, onUndo, onEdit, onAdd }) {
+export default function ProjectTodos({ items, employees, online, onComment, onComplete, onUndo, onEdit, onAdd, fixedAuthor }) {
   const [filter, setFilter] = useState('open')
   const [team, setTeam] = useState('ALLE')
   const [search, setSearch] = useState('')
-  const [author, setAuthor] = useState(() => { try { return localStorage.getItem('gnannt_todo_author') || '' } catch { return '' } })
+  const [selectedAuthor, setAuthor] = useState(() => { try { return localStorage.getItem('gnannt_todo_author') || '' } catch { return '' } })
+  const author = fixedAuthor || selectedAuthor
   const [lastDone, setLastDone] = useState(null)
   const [undoError, setUndoError] = useState('')
   const [undoing, setUndoing] = useState(false)
@@ -71,7 +73,7 @@ export default function ProjectTodos({ items, employees, online, onComment, onCo
     <div className="todo-heading"><div><h2>Projekt-To-dos</h2><p>Neue Projekte automatisch oben. Alles Offene bleibt hier, bis es abgehakt ist.</p></div><button className="btn primary" onClick={onAdd}><Plus size={16}/> Projekt hinzufügen</button></div>
     <div className="todo-controls">
       <div className="todo-filters">{filters.map(([value, label, count]) => <button key={value} className={filter === value ? 'selected' : ''} aria-pressed={filter === value} onClick={() => setFilter(value)}>{label}{count !== undefined && <span>{count}</span>}</button>)}</div>
-      <div className="todo-inputs"><label className="todo-search"><Search size={17}/><input aria-label="To-dos durchsuchen" placeholder="Projekt, Kunde, Ort, Kommentar…" value={search} onChange={e => setSearch(e.target.value)}/></label><label>Team<select aria-label="Team filtern" value={team} onChange={e => setTeam(e.target.value)}><option value="ALLE">Alle Mitarbeiter</option>{employees.map(name => <option key={name}>{name}</option>)}</select></label><label>Kommentar von<select aria-label="Kommentar von" value={author} onChange={e => { setAuthor(e.target.value); try { localStorage.setItem('gnannt_todo_author', e.target.value) } catch {} }}><option value="">Namen wählen</option>{employees.map(name => <option key={name}>{name}</option>)}</select></label></div>
+      <div className="todo-inputs"><label className="todo-search"><Search size={17}/><input aria-label="To-dos durchsuchen" placeholder="Projekt, Kunde, Ort, Kommentar…" value={search} onChange={e => setSearch(e.target.value)}/></label><label>Team<select aria-label="Team filtern" value={team} onChange={e => setTeam(e.target.value)}><option value="ALLE">Alle Mitarbeiter</option>{employees.map(name => <option key={name}>{name}</option>)}</select></label>{fixedAuthor ? <div className="todo-author-fixed">Kommentar von<strong>{fixedAuthor}</strong></div> : <label>Kommentar von<select aria-label="Kommentar von" value={author} onChange={e => { setAuthor(e.target.value); try { localStorage.setItem('gnannt_todo_author', e.target.value) } catch {} }}><option value="">Namen wählen</option>{employees.map(name => <option key={name}>{name}</option>)}</select></label>}</div>
     </div>
     <div className="todo-list-info"><span>{shown.length} Projekte · Neueste zuerst</span>{(filter !== 'open' || team !== 'ALLE' || search) && <button onClick={showAll}>Alle {open.length} offenen Projekte anzeigen</button>}</div>
     {newProjects.length > 0 && <div className="todo-success" role="status"><span>{newProjects.length === 1 ? 'Ein neues Projekt wurde hinzugefügt.' : `${newProjects.length} neue Projekte wurden hinzugefügt.`}</span><button onClick={showAll}>Neue Projekte anzeigen</button></div>}
