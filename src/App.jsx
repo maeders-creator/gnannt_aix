@@ -809,7 +809,13 @@ export default function App() {
     }
 
     if (pendingFile && savedId) {
-      await upload(pendingFile, savedId)
+      // Keep the saved ID so a failed upload can be retried without creating another order.
+      setForm(p => ({ ...p, id: savedId }))
+      const uploaded = await upload(pendingFile, savedId)
+      if (!uploaded) {
+        setSaving(false)
+        return
+      }
     }
 
     setModal(false)
