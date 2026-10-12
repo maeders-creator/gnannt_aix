@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createClient } from '@supabase/supabase-js'
+import ProjectTodos from './ProjectTodos'
+import { appendProjectComment, completeProject } from './projectTodos'
 import {CalendarDays, Plus, Search, Hammer, User, MapPin, ClipboardList, Monitor, LockKeyhole, LogOut, Maximize, Paperclip, Bell, Tablet, GripVertical, Moon, RefreshCw, Cloud, BarChart3, Upload, Users, FolderOpen, X} from 'lucide-react'
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 'https://zsgvqpikwhawodhvhdeq.supabase.co'
@@ -579,7 +581,7 @@ function ScreenSplitView({ prodItems, montageItems, onStatus }) {
 export default function App() {
   const [items, setItems] = useState([])
   const [search, setSearch] = useState('')
-  const [tab, setTab] = useState(window.location.hash === PUBLIC_SCREEN_HASH ? 'screen' : 'planung')
+  const [tab, setTab] = useState(window.location.hash === PUBLIC_SCREEN_HASH ? 'screen' : 'todos')
   const [filterLead, setFilterLead] = useState('ALLE')
   const [modal, setModal] = useState(false)
   const [form, setForm] = useState(EMPTY)
@@ -603,23 +605,21 @@ export default function App() {
   const [user, setUser] = useState(null)
   const [dragged, setDragged] = useState(null)
   const screenRef = useRef(null)
+  const loadVersion = useRef(0)
   const autoScrollTimerRef = useRef(null)
   const autoScrollResumeRef = useRef(null)
   const autoReloadRef = useRef(null)
   const [now, setNow] = useState(new Date())
 
   const isScreen = window.location.hash === PUBLIC_SCREEN_HASH
-  const load = async () => {
-    setLoading(true)
-    const { data, error } = await supabase
-      .from('projects')
-      .select('*')
-      .order('created_at', { ascending: false })
-
+  const load = async ({ silent = false } = {}) => {
+    const version = ++loadVersion.current
+    if (!silent) setLoading(true)
+    const { data, error } = await supabase.from('projects').select('*').order('created_at', { ascending: false })
+    if (version !== loadVersion.current) return
     if (error) {
-      setError('Supabase Fehler beim Laden: ' + error.message)
+      setError('Projekte konnten nicht aktualisiert werden: ' + error.message)
       setConnected(false)
-      setItems([])
     } else {
       setError('')
       setConnected(true)
@@ -627,6 +627,32 @@ export default function App() {
     }
     setLoading(false)
   }
+  const applyTodoProject = project => {
+    loadVersion.current += 1
+    setLoading(false)
+    setItems(current => current.map(item => String(item.id) === String(project.id) ? project : item))
+  }
+  const commentTodo = async (id, text, author) => {
+    if (!navigator.onLine) throw new Error('Bitte zum Speichern wieder online gehen.')
+    applyTodoProject(await appendProjectComment(supabase, id, text, author))
+  }
+  const finishTodo = async project => {
+    if (!navigator.onLine) throw new Error('Bitte zum Abhaken wieder online gehen.')
+    applyTodoProject(await completeProject(supabase, project))
+  }
+  const undoTodo = async project => {
+    if (!navigator.onLine) throw new Error('Bitte zum Speichern wieder online gehen.')
+    applyTodoProject(await completeProject(supabase, { ...project, status: 'ERLEDIGT' }, project.status || 'AUFMASS'))
+  }
+  useEffect(() => {
+    if (tab !== 'todos') return
+    const refresh = () => { if (navigator.onLine && document.visibilityState === 'visible') load({ silent: true }) }
+    refresh()
+    const timer = setInterval(refresh, 30000)
+    window.addEventListener('focus', refresh)
+    document.addEventListener('visibilitychange', refresh)
+    return () => { clearInterval(timer); window.removeEventListener('focus', refresh); document.removeEventListener('visibilitychange', refresh) }
+  }, [tab])
 
   useEffect(() => { load() }, [])
 
@@ -638,7 +664,7 @@ export default function App() {
     return () => { window.removeEventListener('online', goOnline); window.removeEventListener('offline', goOffline) }
   }, [])
   useEffect(() => { supabase.auth.getSession().then(({ data }) => { if (data.session?.user) setUser({ email: data.session.user.email, role: 'user' }) }); const { data } = supabase.auth.onAuthStateChange((_event, session) => setUser(session?.user ? { email: session.user.email, role: 'user' } : null)); return () => data.subscription.unsubscribe() }, [])
-  useEffect(() => { const channel = supabase.channel('projects-live').on('postgres_changes', { event: '*', schema: 'public', table: 'projects' }, () => load()).subscribe(s => setConnected(s === 'SUBSCRIBED')); return () => supabase.removeChannel(channel) }, [])
+  useEffect(() => { const channel = supabase.channel('projects-live').on('postgres_changes', { event: '*', schema: 'public', table: 'projects' }, () => load({ silent: true })).subscribe(s => setConnected(s === 'SUBSCRIBED')); return () => supabase.removeChannel(channel) }, [])
   useEffect(() => { const onHash = () => { if (window.location.hash === PUBLIC_SCREEN_HASH) setTab('screen') }; window.addEventListener('hashchange', onHash); return () => window.removeEventListener('hashchange', onHash) }, [])
   useEffect(() => { const timer = setInterval(() => setNow(new Date()), 1000); return () => clearInterval(timer) }, [])
 
@@ -936,7 +962,8 @@ export default function App() {
     </div>
   )
 
-  return <div className="app"><div className="shell"><header><div className="board-brand"><img src="/gnannt-logo.png" alt="Gnannt" /><div><h1>Gnannt Produktionsplanung</h1><p>Produktion & Montage</p></div></div><div className="header-actions"><span className={online ? 'online-pill on' : 'online-pill off'}>{online ? (syncing ? 'Sync läuft' : 'Online') : 'Offline'}</span><button className="btn outline" onClick={() => { load(); syncQueue() }}><RefreshCw size={16}/> Neu laden</button><button className="btn outline" onClick={openScreen}><Monitor size={16}/> Screen</button><button className="btn outline" onClick={() => setTab('hub')}>GNANNT HUB</button><button className="btn outline" onClick={logout}><LogOut size={16}/> Abmelden</button><button className="btn primary" onClick={() => { setForm(EMPTY); setPendingFile(null); setModal(true) }}><Plus size={16}/> Neuer Auftrag</button></div></header><div className="stats stats-two"><div className="stat"><p>Offene Projekte</p><strong>{active.length}</strong></div><div className="stat"><p>Datenstatus</p><span><Cloud size={16}/> {online ? (syncing ? 'Synchronisiere...' : (connected ? 'Supabase live verbunden' : 'Online / Verbindung wird geprüft')) : 'Offline-Modus'}</span>{error && <small className="error">{error}</small>}</div></div><div className="toolbar"><div className="search"><Search size={18}/><input value={search} onChange={e => setSearch(e.target.value)} placeholder="Suche nach Projekt, Kunde, Ort oder Verantwortlichem..." /></div><select value={filterLead} onChange={e => setFilterLead(e.target.value)}><option>ALLE</option>{EMPLOYEES.map(x => <option key={x}>{x}</option>)}</select></div><nav>{[
+  return <div className="app"><div className="shell"><header><div className="board-brand"><img src="/gnannt-logo.png" alt="Gnannt" /><div><h1>Gnannt Produktionsplanung</h1><p>Produktion & Montage</p></div></div><div className="header-actions"><span className={online ? 'online-pill on' : 'online-pill off'}>{online ? (syncing ? 'Sync läuft' : 'Online') : 'Offline'}</span><button className="btn outline" onClick={() => { load(); syncQueue() }}><RefreshCw size={16}/> Neu laden</button><button className="btn outline" onClick={openScreen}><Monitor size={16}/> Screen</button><button className="btn outline" onClick={() => setTab('hub')}>GNANNT HUB</button><button className="btn outline" onClick={logout}><LogOut size={16}/> Abmelden</button><button className="btn primary" onClick={() => { setForm(EMPTY); setPendingFile(null); setModal(true) }}><Plus size={16}/> Neuer Auftrag</button></div></header><div className="stats stats-two"><div className="stat"><p>Offene Projekte</p><strong>{tab === 'todos' ? items.filter(item => item.status !== 'ERLEDIGT').length : active.length}</strong></div><div className="stat"><p>Datenstatus</p><span><Cloud size={16}/> {online ? (syncing ? 'Synchronisiere...' : (connected ? 'Supabase live verbunden' : 'Online / Verbindung wird geprüft')) : 'Offline-Modus'}</span>{error && <small className="error">{error}</small>}</div></div>{tab !== 'todos' && <div className="toolbar"><div className="search"><Search size={18}/><input value={search} onChange={e => setSearch(e.target.value)} placeholder="Suche nach Projekt, Kunde, Ort oder Verantwortlichem..." /></div><select value={filterLead} onChange={e => setFilterLead(e.target.value)}><option>ALLE</option>{EMPLOYEES.map(x => <option key={x}>{x}</option>)}</select></div>}<nav>{[
+  ['todos','To-do-Liste'],
   ['planung','Plantafel'],
   ['hub','GNANNT HUB'],
   ['dashboard','Dashboard'],
@@ -944,5 +971,5 @@ export default function App() {
   ['uploads','PDF Uploads'],
   ['ruben','Ruben'],
   ['team','Team']
-].map(([t,label]) => <button key={t} className={tab===t ? 'active' : ''} onClick={() => setTab(t)}>{label}</button>)}</nav>{loading ? <div className="panel center">Lade Projekte...</div> : tab === 'planung' ? <div className="stack">{grouped.map(g => <div key={g.status} className="panel" onDragOver={e => e.preventDefault()} onDrop={() => dragged && updateStatus(dragged, g.status)}><div className="panel-head"><h3>{g.status}</h3><span className={badgeClass(g.status)}>{g.items.length}</span></div><p className="tiny">Drag & Drop zwischen Statusbereichen aktiv</p><div className="grid">{g.items.length ? g.items.map(x => <Card key={x.id} item={x} onEdit={edit} onStatus={updateStatus} draggable onDragStart={() => setDragged(x.id)} />) : <div className="empty">Keine offenen Projekte</div>}</div></div>)}{archived.length > 0 && <div className="panel"><h3>Archiv</h3><div className="grid">{archived.map(x => <Card key={x.id} item={x} onEdit={edit} onStatus={updateStatus}/>)}</div></div>}</div> : tab === 'hub' ? <KnowledgeBaseLive/> : tab === 'dashboard' ? <Dashboard active={active} archived={archived}/> : tab === 'kalender' ? <Calendar items={active} edit={edit}/> : tab === 'uploads' ? <Uploads items={items} edit={edit}/> : <Team user={user} items={tab === 'ruben' ? items.filter(x => x.status === 'MONTAGE' || x.lead === 'Ruben') : items}/>}<Modal open={modal} close={() => setModal(false)}><Form form={form} setForm={setForm} save={save} saving={saving} upload={upload} uploading={uploading} pendingFile={pendingFile} setPendingFile={setPendingFile} /></Modal></div></div>
+].map(([t,label]) => <button key={t} className={tab===t ? 'active' : ''} onClick={() => setTab(t)}>{label}</button>)}</nav>{loading && !items.length ? <div className="panel center">Lade Projekte...</div> : tab === 'todos' ? <ProjectTodos items={items} employees={EMPLOYEES} online={online} onComment={commentTodo} onComplete={finishTodo} onUndo={undoTodo} onEdit={edit} onAdd={() => { setForm(EMPTY); setPendingFile(null); setModal(true) }}/> : tab === 'planung' ? <div className="stack">{grouped.map(g => <div key={g.status} className="panel" onDragOver={e => e.preventDefault()} onDrop={() => dragged && updateStatus(dragged, g.status)}><div className="panel-head"><h3>{g.status}</h3><span className={badgeClass(g.status)}>{g.items.length}</span></div><p className="tiny">Drag & Drop zwischen Statusbereichen aktiv</p><div className="grid">{g.items.length ? g.items.map(x => <Card key={x.id} item={x} onEdit={edit} onStatus={updateStatus} draggable onDragStart={() => setDragged(x.id)} />) : <div className="empty">Keine offenen Projekte</div>}</div></div>)}{archived.length > 0 && <div className="panel"><h3>Archiv</h3><div className="grid">{archived.map(x => <Card key={x.id} item={x} onEdit={edit} onStatus={updateStatus}/>)}</div></div>}</div> : tab === 'hub' ? <KnowledgeBaseLive/> : tab === 'dashboard' ? <Dashboard active={active} archived={archived}/> : tab === 'kalender' ? <Calendar items={active} edit={edit}/> : tab === 'uploads' ? <Uploads items={items} edit={edit}/> : <Team user={user} items={tab === 'ruben' ? items.filter(x => x.status === 'MONTAGE' || x.lead === 'Ruben') : items}/>}<Modal open={modal} close={() => setModal(false)}><Form form={form} setForm={setForm} save={save} saving={saving} upload={upload} uploading={uploading} pendingFile={pendingFile} setPendingFile={setPendingFile} /></Modal></div></div>
 }
