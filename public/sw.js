@@ -1,5 +1,5 @@
 
-const CACHE_NAME = 'gnannt-aix-v2';
+const CACHE_NAME = 'gnannt-aix-v3';
 const ASSETS = ['/', '/index.html', '/manifest.webmanifest', '/monteur.webmanifest', '/gnannt-logo.png', '/monteur-icon-192.png', '/monteur-icon-512.png'];
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE_NAME).then(c => c.addAll(ASSETS)).catch(()=>null));

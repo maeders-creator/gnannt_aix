@@ -9,14 +9,14 @@ const fixture = [
   { id: 4, projekt: 'Montage', status: 'MONTAGE', created_at: '2026-10-02', termin: '2026-10-12', lead: 'Ruben' },
   { id: 5, projekt: 'Überfällig', status: 'PRODUKTION', created_at: '2026-10-01', termin: '2026-10-09' },
 ]
-test('all open projects remain visible including unknown status and no date; newest first', () => {
-  assert.deepEqual(projectTodoList(fixture).map(p => p.id), [2, 4, 5, 1])
-  assert.deepEqual(projectTodoList([...fixture, { id: 6, created_at: '2026-10-13', status: 'NEU' }]).map(p => p.id), [6, 2, 4, 5, 1])
+test('all open projects remain visible; due dates come before undated work', () => {
+  assert.deepEqual(projectTodoList(fixture).map(p => p.id), [5, 4, 1, 2])
+  assert.deepEqual(projectTodoList([...fixture, { id: 6, created_at: '2026-10-13', status: 'NEU' }]).map(p => p.id), [5, 4, 1, 2, 6])
 })
 test('team membership includes assistants; filters keep undated and completed projects reachable', () => {
   const opts = { today: '2026-10-12' }
   assert.deepEqual(projectTodoList(fixture, { ...opts, team: 'Ruben' }).map(p => p.id), [4, 1])
-  assert.deepEqual(projectTodoList(fixture, { ...opts, filter: 'undated' }).map(p => p.id), [2, 1])
+  assert.deepEqual(projectTodoList(fixture, { ...opts, filter: 'undated' }).map(p => p.id), [1, 2])
   assert.deepEqual(projectTodoList(fixture, { ...opts, filter: 'done' }).map(p => p.id), [3])
   assert.deepEqual(projectTodoList(fixture, { ...opts, filter: 'overdue' }).map(p => p.id), [5])
   assert.deepEqual(projectTodoList(fixture, { ...opts, filter: 'today' }).map(p => p.id), [4])
@@ -72,4 +72,30 @@ test('completion changes only status, can be undone, and rejects stale status', 
   assert.equal(done.status, 'ERLEDIGT'); assert.equal(done.notiz, 'Erhalten')
   assert.equal((await completeProject(client, done, project.status)).status, 'IN_ARBEIT')
   await assert.rejects(completeProject(client, { ...project, status: 'MONTAGE' }), /inzwischen geändert/)
+})
+
+test('Meine Jobs includes the lead and each selected colleague; reassigning removes the former colleague', () => {
+  const row = { id: 1, status: 'AUFMASS', lead: 'Samuel', mitarbeiter: 'Ruben, Edmund' }
+  for (const team of ['Samuel', 'Ruben', 'Edmund']) assert.equal(projectTodoList([row], { team }).length, 1)
+  for (const team of ['Gerold', 'Jonathan', 'Ed']) assert.equal(projectTodoList([row], { team }).length, 0)
+  const reassigned = { ...row, mitarbeiter: 'Gerold, Edmund' }
+  assert.equal(projectTodoList([reassigned], { team: 'Gerold' }).length, 1)
+  assert.equal(projectTodoList([reassigned], { team: 'Ruben' }).length, 0)
+})
+
+test('work order follows due date, time and priority, never newest-first', () => {
+  const rows = [
+    { id: 1, status: 'AUFMASS', termin: '2026-10-14', prioritaet: 'Hoch', created_at: '2026-10-12' },
+    { id: 2, status: 'MONTAGE', termin: '2026-10-13', uhrzeit: '10:00' },
+    { id: 3, status: 'MONTAGE', termin: '2026-10-13', uhrzeit: '09:00', prioritaet: 'Mittel' },
+    { id: 4, status: 'AUFMASS', termin: null, prioritaet: 'Hoch' },
+    { id: 5, status: 'PRODUKTION', termin: '2026-10-11' },
+    { id: 6, status: 'MONTAGE', termin: '2026-10-13', uhrzeit: '09:00', prioritaet: 'Hoch' },
+  ]
+  assert.deepEqual(projectTodoList(rows).map(p => p.id), [5, 6, 3, 2, 1, 4])
+})
+test('legacy team names separated by spaces are still assigned correctly', () => {
+  const row = { id: 1, status: 'MONTAGE', lead: 'Ruben', mitarbeiter: 'Ruben Edgar Jonathan' }
+  assert.equal(projectTodoList([row], { team: 'Jonathan' }).length, 1)
+  assert.equal(projectTodoList([row], { team: 'Edmund' }).length, 0)
 })

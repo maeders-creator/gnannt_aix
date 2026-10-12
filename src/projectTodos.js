@@ -2,6 +2,17 @@ export function berlinDay(date = new Date()) {
   const parts = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Berlin', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(date)
   return ['year', 'month', 'day'].map(type => parts.find(part => part.type === type).value).join('-')
 }
+export const projectTeamNames = value => [...new Set(String(value || '').split(/[,;/&+\s]+/).filter(Boolean))]
+export const projectHasEmployee = (project, name) => [project.lead, ...projectTeamNames(project.mitarbeiter)].some(value => String(value || '').trim().toLowerCase() === name.toLowerCase())
+export function compareProjectUrgency(a, b) {
+  // Actual due date wins over creation date; undated work remains below scheduled work.
+  const date = (a.termin || '9999-12-31').localeCompare(b.termin || '9999-12-31')
+  if (date) return date
+  const time = (a.uhrzeit || '23:59:59').localeCompare(b.uhrzeit || '23:59:59')
+  if (time) return time
+  const priority = { Hoch: 0, Mittel: 1, Niedrig: 2 }
+  return (priority[a.prioritaet] ?? 1) - (priority[b.prioritaet] ?? 1) || (Date.parse(a.created_at) || 0) - (Date.parse(b.created_at) || 0) || Number(a.id) - Number(b.id)
+}
 
 export function projectTodoList(items, { filter = 'open', team = 'ALLE', search = '', today = berlinDay() } = {}) {
   const sunday = new Date(`${today}T12:00:00Z`)
@@ -11,14 +22,14 @@ export function projectTodoList(items, { filter = 'open', team = 'ALLE', search 
     const done = item.status === 'ERLEDIGT'
     if (filter === 'done' ? !done : done) return false
     // No status whitelist: older IN_ARBEIT entries and undated projects must remain visible.
-    if (team !== 'ALLE' && ![item.lead, item.mitarbeiter].some(value => String(value || '').toLowerCase().includes(team.toLowerCase()))) return false
+    if (team !== 'ALLE' && !projectHasEmployee(item, team)) return false
     if (search && ![item.projekt, item.kunde, item.ort, item.adresse, item.lead, item.mitarbeiter, item.notiz].join(' ').toLowerCase().includes(search.trim().toLowerCase())) return false
     if (filter === 'today' && item.termin !== today) return false
     if (filter === 'week' && (!item.termin || item.termin < today || item.termin > weekEnd)) return false
     if (filter === 'overdue' && (!item.termin || item.termin >= today)) return false
     if (filter === 'undated' && item.termin) return false
     return true
-  }).sort((a, b) => (Date.parse(b.created_at) || 0) - (Date.parse(a.created_at) || 0) || Number(b.id) - Number(a.id))
+  }).sort(compareProjectUrgency)
 }
 
 export async function appendProjectComment(client, id, text, author, now = new Date()) {

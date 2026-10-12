@@ -28,3 +28,18 @@ test('unknown or disabled personal links cannot read projects', async () => {
   const result = await handler(new Request('https://example.test', { method: 'POST', headers: { 'x-monteur-token': 'A'.repeat(43) }, body: JSON.stringify({ action: 'list' }) }))
   assert.equal(result.status, 401); assert.deepEqual(queries[1], ['active', true]); assert.match(queries[0][1], /^[0-9a-f]{64}$/)
 })
+
+test('metadata edits are restricted and attributed, while creator, comments and status stay untouched', async () => {
+  const { editProjectPayload } = await import('../supabase/functions/monteur-api/handler.mjs')
+  const current = { ...newProjectPayload(input, actor), details_version: 2, notiz: 'Vorhandener Kommentar' }
+  const patch = editProjectPayload({ version: 2, changes: { telefon: ' 01234 56789 ', termin: '2026-10-20', uhrzeit: '09:30', mitarbeiter: 'Ruben, Edmund' } }, current, actor)
+  assert.deepEqual(patch, { telefon: '01234 56789', termin: '2026-10-20', uhrzeit: '09:30', mitarbeiter: 'Ruben, Edmund', details_updated_by: actor.name })
+  for (const field of ['notiz', 'status', 'created_by', 'created_by_name', 'details_updated_by', 'details_version', '__proto__']) {
+    assert.throws(() => editProjectPayload({ version: 2, changes: { [field]: 'wrong' } }, current, actor))
+  }
+  for (const changes of [{ termin: '2026-02-30' }, { uhrzeit: '24:00' }, { mitarbeiter: 'Unknown' }, { email_kunde: 'no-email' }, { projekt: '' }]) {
+    assert.throws(() => editProjectPayload({ version: 2, changes }, current, actor))
+  }
+  assert.throws(() => editProjectPayload({ changes: { telefon: '123' } }, current, actor))
+  assert.throws(() => editProjectPayload({ version: 2, changes: {} }, current, actor))
+})

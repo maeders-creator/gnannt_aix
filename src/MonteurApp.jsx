@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { ArrowLeft, Check, ChevronRight, LogOut, RefreshCw, Smartphone, X } from 'lucide-react'
+import { ArrowLeft, Check, ChevronRight, LogOut, RefreshCw, Smartphone, X, ListTodo, BookOpen, LayoutDashboard, CalendarDays } from 'lucide-react'
 import ProjectTodos from './ProjectTodos'
 import { createMonteurApi, MONTEUR_SESSION, readMonteurToken } from './monteurApi'
+import { EMPLOYEES, ProjectDetail, MonteurHub, MonteurDashboard, MonteurCalendar } from './MonteurViews'
 import './monteur.css'
 
-const EMPLOYEES = ['Jonathan', 'Ruben', 'Gerold', 'Samuel', 'Edmund', 'Waldemar']
 const blank = actor => ({ requestId: crypto.randomUUID(), projekt: '', kunde: '', ort: '', adresse: '', telefon: '', lead: actor.name, team: [actor.name], termin: '', uhrzeit: '', prioritaet: 'Mittel', notiz: '' })
 
 function OrderWizard({ actor, api, onSaved, onClose }) {
@@ -46,7 +46,7 @@ function OrderWizard({ actor, api, onSaved, onClose }) {
       </div>}
       {step === 1 && <div className="monteur-fields">
         <label>Verantwortlich<select value={form.lead} onChange={e => set('lead', e.target.value)}>{EMPLOYEES.map(name => <option key={name}>{name}</option>)}</select></label>
-        <fieldset><legend>Wer hilft mit?</legend><div className="monteur-team-options">{EMPLOYEES.map(name => <label key={name}><input type="checkbox" checked={form.team.includes(name)} onChange={e => set('team', e.target.checked ? [...form.team, name] : form.team.filter(x => x !== name))}/>{name}</label>)}</div></fieldset>
+        <fieldset><legend>Mitarbeiterteam · Wer hilft mit?</legend><p className="monteur-subtitle">Ausgewählte Kollegen sehen den Auftrag unter „Meine Jobs“ in ihrer App.</p><div className="monteur-team-options">{EMPLOYEES.map(name => <label key={name}><input type="checkbox" checked={form.team.includes(name)} onChange={e => set('team', e.target.checked ? [...form.team, name] : form.team.filter(x => x !== name))}/>{name}</label>)}</div></fieldset>
         <div className="monteur-field-pair"><label>Termin<input type="date" value={form.termin} onChange={e => { setForm(current => ({ ...current, termin: e.target.value, uhrzeit: e.target.value ? current.uhrzeit : '' })) }}/></label><label>Uhrzeit<input type="time" disabled={!form.termin} value={form.uhrzeit} onChange={e => set('uhrzeit', e.target.value)}/></label></div>
         <label>Priorität<select value={form.prioritaet} onChange={e => set('prioritaet', e.target.value)}><option>Niedrig</option><option>Mittel</option><option>Hoch</option></select></label>
         <label>Was ist wichtig?<textarea rows={4} maxLength={4000} value={form.notiz} onChange={e => set('notiz', e.target.value)} placeholder="Arbeiten, Material, Besonderheiten, Zugang zur Baustelle…"/></label>
@@ -72,7 +72,9 @@ export default function MonteurApp() {
   const [online, setOnline] = useState(navigator.onLine)
   const [view, setView] = useState('list')
   const [saved, setSaved] = useState(null)
-  const [detail, setDetail] = useState(null)
+  const [detailId, setDetailId] = useState(null)
+  const detail = items.find(item => item.id === detailId)
+  const openDetail = project => { setDetailId(project.id); window.scrollTo(0, 0) }
   const version = useRef(0)
   const load = useCallback(async () => {
     if (!token || !navigator.onLine) { setLoading(false); return }
@@ -100,12 +102,14 @@ export default function MonteurApp() {
     <header className="monteur-header"><img src="/gnannt-logo.png" alt="Gnannt"/><div><strong>Monteurzugang</strong><span>{actor ? `Angemeldet als ${actor.name}` : 'Aufträge · Team · Rückmeldungen'}</span></div>{actor && <button aria-label="Abmelden" title="Abmelden" onClick={logout}><LogOut size={20}/></button>}</header>
     {!token ? <section className="monteur-welcome"><Smartphone size={36}/><h1>Dein direkter Zugang</h1><p>Öffne deinen persönlichen Zugangslink von Samuel. Dann kannst du Aufträge einstellen, kommentieren und abhaken.</p></section> : !actor ? <section className="monteur-welcome"><h1>{loading ? 'Zugang wird geöffnet…' : 'Zugang prüfen'}</h1>{error && <p role="alert">{error}</p>}{!loading && <button className="monteur-primary" onClick={load}>Erneut versuchen</button>}</section> : <>
       {view === 'new' ? <OrderWizard actor={actor} api={api} onClose={() => setView('list')} onSaved={project => { apply(project); setSaved(project); setView('list'); window.scrollTo(0, 0) }}/> : view === 'help' ? <InstallHelp onClose={() => setView('list')}/> : <>
-        <div className="monteur-tools"><button onClick={() => setView('help')}><Smartphone size={17}/> Als App speichern</button><button onClick={load} aria-label="Liste aktualisieren"><RefreshCw size={17}/></button></div>
+        <div className="monteur-tools"><button onClick={() => { setDetailId(null); setView('help') }}><Smartphone size={17}/> Als App speichern</button><button onClick={load} aria-label="Liste aktualisieren"><RefreshCw size={17}/></button></div>
         {!online && <p className="monteur-error" role="status">Offline. Zum Speichern bitte mit dem Internet verbinden.</p>}
         {error && <p className="monteur-error" role="alert">{error}</p>}
         {saved && <div className="monteur-saved" role="status"><Check size={20}/><div><strong>Auftrag eingestellt</strong><span>{saved.projekt} · von {saved.created_by_name}</span></div><button onClick={() => setSaved(null)} aria-label="Bestätigung schließen"><X size={18}/></button></div>}
-        {detail && <section className="monteur-detail"><button onClick={() => setDetail(null)} aria-label="Auftragsdetails schließen"><X size={18}/></button><h2>{detail.projekt}</h2><p>{detail.kunde}<br/>{[detail.adresse, detail.ort].filter(Boolean).join(', ')}</p>{detail.telefon && <a href={`tel:${detail.telefon.replace(/[^+\d]/g, '')}`}>{detail.telefon}</a>}<p>Eingestellt von: <strong>{detail.created_by_name || 'Bestand – noch nicht erfasst'}</strong></p><p className="monteur-note">{detail.notiz || 'Noch keine Notizen.'}</p>{detail.attachment_url && <a href={detail.attachment_url} target="_blank" rel="noreferrer">Projekt-PDF öffnen</a>}</section>}
-        <ProjectTodos items={items} employees={EMPLOYEES} online={online} fixedAuthor={actor.name} onAdd={() => { setSaved(null); setView('new') }} onEdit={setDetail} onComment={(id, comment) => action('comment', { id, comment })} onComplete={project => action('complete', { id: project.id, previousStatus: project.status })} onUndo={project => action('undo', { id: project.id, previousStatus: 'ERLEDIGT', restoreStatus: project.status || 'AUFMASS' })}/>
+        {detail ? <ProjectDetail key={detail.id} project={detail} api={api} online={online} onSaved={apply} onClose={() => setDetailId(null)}/> : <>
+          <nav className="monteur-nav" aria-label="Monteur-Bereiche">{[['list', 'To-dos', ListTodo], ['hub', 'Hub', BookOpen], ['dashboard', 'Dashboard', LayoutDashboard], ['calendar', 'Kalender', CalendarDays]].map(([key, label, Icon]) => <button key={key} aria-current={view === key ? 'page' : undefined} onClick={() => { setView(key); setSaved(null) }}><Icon size={21}/>{label}</button>)}</nav>
+          {view === 'hub' ? <MonteurHub api={api}/> : view === 'dashboard' ? <MonteurDashboard items={items} actor={actor} onOpen={openDetail}/> : view === 'calendar' ? <MonteurCalendar items={items} onOpen={openDetail}/> : <ProjectTodos items={items} employees={EMPLOYEES} online={online} fixedAuthor={actor.name} onAdd={() => { setSaved(null); setView('new') }} onEdit={openDetail} onComment={(id, comment) => action('comment', { id, comment })} onComplete={project => action('complete', { id: project.id, previousStatus: project.status })} onReopen={project => action('reopen', { id: project.id })} onUndo={project => action('reopen', { id: project.id })}/>}
+        </>}
       </>}
     </>}
     <footer>GNANNT · Produktion & Montage</footer>

@@ -2,11 +2,14 @@ import React, { useEffect, useState } from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App.jsx'
 import MonteurApp from './MonteurApp.jsx'
+import { MONTEUR_SESSION } from './monteurApi'
 import './styles.css'
 
 function Root() {
   const [hash, setHash] = useState(window.location.hash)
-  const isMonteur = hash.startsWith('#monteur')
+  let rememberedMonteur = false
+  try { rememberedMonteur = Boolean(localStorage.getItem(MONTEUR_SESSION)) } catch {}
+  const isMonteur = hash.startsWith('#monteur') || ((!hash || hash === '#') && rememberedMonteur)
   useEffect(() => {
     const route = () => setHash(window.location.hash)
     window.addEventListener('hashchange', route)
