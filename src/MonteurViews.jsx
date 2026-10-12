@@ -100,9 +100,10 @@ export function MonteurDashboard({ items, actor, onOpen }) {
   const open = items.filter(p => p.status !== 'ERLEDIGT')
   const today = berlinDay()
   const mine = open.filter(p => projectHasEmployee(p, actor.name))
-  const [selection, setSelection] = useState('mine')
+  const personal = EMPLOYEES.includes(actor.name)
+  const [selection, setSelection] = useState(() => personal ? 'mine' : 'all')
   const groups = { mine, all: open, today: open.filter(p => p.termin === today), overdue: open.filter(p => p.termin && p.termin < today), undated: open.filter(p => !p.termin), done: items.filter(p => p.status === 'ERLEDIGT') }
-  const cards = [['mine', 'Meine offenen Aufträge'], ['all', 'Alle offenen Aufträge'], ['today', 'Heute'], ['overdue', 'Überfällig'], ['undated', 'Ohne Termin'], ['done', 'Erledigt']]
+  const cards = [...(personal ? [['mine', 'Meine offenen Aufträge']] : []), ['all', 'Alle offenen Aufträge'], ['today', 'Heute'], ['overdue', 'Überfällig'], ['undated', 'Ohne Termin'], ['done', 'Erledigt']]
   const shown = [...groups[selection]].sort(compareProjectUrgency)
   return <section className="monteur-panel"><h1>Dashboard</h1><p className="monteur-subtitle">Der aktuelle Stand für {actor.name} und das ganze Team.</p><div className="monteur-stat-grid">{cards.map(([key, label]) => <button key={key} aria-pressed={selection === key} onClick={() => setSelection(key)}><strong>{groups[key].length}</strong><span>{label}</span></button>)}</div><h2>Offene Aufträge nach Status</h2><div className="monteur-status-list">{Object.entries(STATUSES).filter(([key]) => key !== 'ERLEDIGT').map(([key, label]) => <span key={key}>{label}<strong>{open.filter(p => p.status === key).length}</strong></span>)}</div><h2>{cards.find(([key]) => key === selection)[1]}</h2><div className="monteur-agenda">{shown.map(project => <ProjectLink key={project.id} project={project} onOpen={onOpen}/>)}</div>{!shown.length && <p>Keine Aufträge in dieser Auswahl.</p>}</section>
 }

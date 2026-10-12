@@ -5,7 +5,7 @@ import { createMonteurApi, MONTEUR_SESSION, readMonteurToken } from './monteurAp
 import { EMPLOYEES, ProjectDetail, MonteurHub, MonteurDashboard, MonteurCalendar } from './MonteurViews'
 import './monteur.css'
 
-const blank = actor => ({ requestId: crypto.randomUUID(), projekt: '', kunde: '', ort: '', adresse: '', telefon: '', lead: actor.name, team: [actor.name], termin: '', uhrzeit: '', prioritaet: 'Mittel', notiz: '' })
+const blank = actor => ({ requestId: crypto.randomUUID(), projekt: '', kunde: '', ort: '', adresse: '', telefon: '', lead: EMPLOYEES.includes(actor.name) ? actor.name : '', team: EMPLOYEES.includes(actor.name) ? [actor.name] : [], termin: '', uhrzeit: '', prioritaet: 'Mittel', notiz: '' })
 
 function OrderWizard({ actor, api, onSaved, onClose }) {
   const key = `gnannt_monteur_draft_${actor.id}`
@@ -45,7 +45,7 @@ function OrderWizard({ actor, api, onSaved, onClose }) {
         <label>Telefon für Rückfragen<input type="tel" maxLength={80} autoComplete="tel" value={form.telefon} onChange={e => set('telefon', e.target.value)} placeholder="Optional"/></label>
       </div>}
       {step === 1 && <div className="monteur-fields">
-        <label>Verantwortlich<select value={form.lead} onChange={e => set('lead', e.target.value)}>{EMPLOYEES.map(name => <option key={name}>{name}</option>)}</select></label>
+        <label>Verantwortlich<select required value={form.lead} onChange={e => set('lead', e.target.value)}><option value="" disabled>Bitte Kollegen auswählen</option>{EMPLOYEES.map(name => <option key={name}>{name}</option>)}</select></label>
         <fieldset><legend>Mitarbeiterteam · Wer hilft mit?</legend><p className="monteur-subtitle">Ausgewählte Kollegen sehen den Auftrag unter „Meine Jobs“ in ihrer App.</p><div className="monteur-team-options">{EMPLOYEES.map(name => <label key={name}><input type="checkbox" checked={form.team.includes(name)} onChange={e => set('team', e.target.checked ? [...form.team, name] : form.team.filter(x => x !== name))}/>{name}</label>)}</div></fieldset>
         <div className="monteur-field-pair"><label>Termin<input type="date" value={form.termin} onChange={e => { setForm(current => ({ ...current, termin: e.target.value, uhrzeit: e.target.value ? current.uhrzeit : '' })) }}/></label><label>Uhrzeit<input type="time" disabled={!form.termin} value={form.uhrzeit} onChange={e => set('uhrzeit', e.target.value)}/></label></div>
         <label>Priorität<select value={form.prioritaet} onChange={e => set('prioritaet', e.target.value)}><option>Niedrig</option><option>Mittel</option><option>Hoch</option></select></label>
@@ -108,7 +108,7 @@ export default function MonteurApp() {
         {saved && <div className="monteur-saved" role="status"><Check size={20}/><div><strong>Auftrag eingestellt</strong><span>{saved.projekt} · von {saved.created_by_name}</span></div><button onClick={() => setSaved(null)} aria-label="Bestätigung schließen"><X size={18}/></button></div>}
         {detail ? <ProjectDetail key={detail.id} project={detail} api={api} online={online} onSaved={apply} onClose={() => setDetailId(null)}/> : <>
           <nav className="monteur-nav" aria-label="Monteur-Bereiche">{[['list', 'To-dos', ListTodo], ['hub', 'Hub', BookOpen], ['dashboard', 'Dashboard', LayoutDashboard], ['calendar', 'Kalender', CalendarDays]].map(([key, label, Icon]) => <button key={key} aria-current={view === key ? 'page' : undefined} onClick={() => { setView(key); setSaved(null) }}><Icon size={21}/>{label}</button>)}</nav>
-          {view === 'hub' ? <MonteurHub api={api}/> : view === 'dashboard' ? <MonteurDashboard items={items} actor={actor} onOpen={openDetail}/> : view === 'calendar' ? <MonteurCalendar items={items} onOpen={openDetail}/> : <ProjectTodos items={items} employees={EMPLOYEES} online={online} fixedAuthor={actor.name} onAdd={() => { setSaved(null); setView('new') }} onEdit={openDetail} onComment={(id, comment) => action('comment', { id, comment })} onComplete={project => action('complete', { id: project.id, previousStatus: project.status })} onReopen={project => action('reopen', { id: project.id })} onUndo={project => action('reopen', { id: project.id })}/>}
+          {view === 'hub' ? <MonteurHub api={api}/> : view === 'dashboard' ? <MonteurDashboard items={items} actor={actor} onOpen={openDetail}/> : view === 'calendar' ? <MonteurCalendar items={items} onOpen={openDetail}/> : <ProjectTodos items={items} employees={EMPLOYEES} online={online} fixedAuthor={actor.name} personalName={EMPLOYEES.includes(actor.name) ? actor.name : ''} onAdd={() => { setSaved(null); setView('new') }} onEdit={openDetail} onComment={(id, comment) => action('comment', { id, comment })} onComplete={project => action('complete', { id: project.id, previousStatus: project.status })} onReopen={project => action('reopen', { id: project.id })} onUndo={project => action('reopen', { id: project.id })}/>}
         </>}
       </>}
     </>}
