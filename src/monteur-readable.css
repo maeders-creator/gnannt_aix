@@ -1,0 +1,76 @@
+/* Readable at normal phone zoom; secondary details remain legible. */
+.monteur-app{font-size:17px;line-height:1.5;color:#152238}
+.monteur-app .todo-heading h2{font-size:27px;line-height:1.25}
+.monteur-app .todo-heading p,.monteur-app .monteur-subtitle{font-size:16px;line-height:1.5;color:#475569}
+.monteur-app .todo-heading .btn,.monteur-app .monteur-primary,.monteur-app .monteur-secondary{font-size:17px;min-height:50px}
+.monteur-app .todo-personal-tabs button{font-size:17px;min-height:50px}
+.monteur-app .todo-filters button{font-size:15px;min-height:46px;padding:10px 12px;color:#334155}
+.monteur-app .todo-filters button.selected{color:#fff}
+.monteur-app .todo-filters button span{font-size:14px;opacity:1}
+.monteur-app .todo-inputs label,.monteur-app .todo-author-fixed{font-size:14px;color:#475569}
+.monteur-app .todo-author-fixed{white-space:normal}
+.monteur-app .todo-author-fixed strong{font-size:17px}
+.monteur-app .todo-inputs input,.monteur-app .todo-inputs select,.monteur-app .todo-detail textarea{font-size:17px;min-height:48px}
+.monteur-app input::placeholder,.monteur-app textarea::placeholder{color:#64748b;opacity:1}
+.monteur-app .todo-search svg{top:16px}
+.monteur-app .todo-list-info{font-size:14px;color:#475569;line-height:1.5}
+.monteur-app .todo-title>button{font-size:20px;line-height:1.35}
+.monteur-app .todo-project>span{font-size:16px;line-height:1.5;color:#475569}
+.monteur-app .todo-project .todo-creator{font-size:14px;color:#475569}
+.monteur-app .todo-note-preview{font-size:17px;line-height:1.5;color:#334155;-webkit-line-clamp:3}
+.monteur-app .todo-row-actions button{font-size:15px;min-height:44px;color:#263d59}
+.monteur-app .todo-date,.monteur-app .todo-team{font-size:17px;line-height:1.4}
+.monteur-app .todo-date small,.monteur-app .todo-team small{font-size:15px;color:#475569}
+.monteur-app .todo-date.todo-overdue strong,.monteur-app .todo-date.todo-overdue small{color:#a51d2d}
+.monteur-app .todo-summary>.badge{font-size:12px;padding:8px 10px}
+.monteur-app .todo-new{font-size:12px}
+.monteur-app .todo-check{width:44px;height:44px;border-width:2px}
+.monteur-app .todo-check svg{width:23px;height:23px}
+.monteur-app .todo-expand{min-height:48px}
+.monteur-app .todo-detail,.monteur-app .todo-history p,.monteur-app .monteur-note{font-size:17px;line-height:1.6;color:#334155}
+.monteur-app .todo-detail small,.monteur-app .monteur-help small{font-size:14px;color:#475569}
+.monteur-app .todo-success,.monteur-app .todo-error,.monteur-app .todo-empty,.monteur-app .monteur-error{font-size:16px}
+.monteur-app .todo-detail form .btn{font-size:17px;min-height:50px}
+.monteur-app .monteur-nav button{font-size:15px;min-height:70px;font-weight:700}
+.monteur-app .monteur-fields label,.monteur-app .monteur-fields legend{font-size:16px}
+.monteur-app .monteur-fields input,.monteur-app .monteur-fields select,.monteur-app .monteur-fields textarea{font-size:17px;min-height:50px}
+.monteur-app .monteur-team-options label{font-size:16px;min-height:48px}
+.monteur-app .monteur-team-options input{min-height:20px;width:20px;height:20px}
+.monteur-app .monteur-review dl{font-size:16px;line-height:1.5}
+.monteur-app .monteur-review dt{color:#475569}
+.monteur-app .monteur-project-link strong{font-size:19px;line-height:1.4}
+.monteur-app .monteur-project-link small{font-size:15px;color:#475569}
+.monteur-app .monteur-stat-grid button span,.monteur-app .monteur-status-list span{font-size:15px}
+.monteur-app .monteur-doc-list article>span,.monteur-app .monteur-doc-list article>p{font-size:15px;color:#475569}
+.monteur-app .monteur-calendar-grid>span{font-size:14px;color:#475569}
+.monteur-app .monteur-calendar-grid button{font-size:17px;min-height:56px}
+.monteur-app .monteur-calendar-grid button small{font-size:12px}
+.monteur-app .monteur-check-label{font-size:16px}
+.monteur-app .monteur-tools button{font-size:16px}
+.monteur-app .monteur-header span{font-size:14px;color:#475569}
+.monteur-app .monteur-header strong{font-size:18px}
+.monteur-app .monteur-saved span{font-size:15px}
+@media(min-width:601px){.monteur-app .todo-summary{grid-template-columns:44px minmax(170px,2.2fr) minmax(110px,1fr) minmax(100px,1fr) 115px 64px;gap:12px}}
+@media(min-width:601px) and (max-width:1000px){.monteur-app .todo-summary{grid-template-columns:44px minmax(150px,2fr) minmax(100px,1fr) 64px}}
+@media(max-width:600px){
+  .monteur-app .todo-summary{grid-template-columns:44px minmax(0,1fr) 48px;padding:18px 14px;gap:10px}
+  .monteur-app .todo-detail{padding:18px 16px}
+  .monteur-app .todo-title{gap:6px}
+  .monteur-app .monteur-steps{gap:6px}
+  .monteur-app .monteur-steps li{flex-direction:column;font-size:14px}
+  .monteur-app .monteur-wizard-top>span{font-size:13px}
+  .monteur-app .monteur-review dl{grid-template-columns:110px minmax(0,1fr)}
+}
+@media(max-width:380px){
+  .monteur-app .monteur-nav{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .monteur-app .monteur-nav button{flex-direction:row;min-height:52px;font-size:16px}
+  .monteur-app .monteur-field-pair{grid-template-columns:minmax(0,1fr)}
+  .monteur-app .monteur-review dl{grid-template-columns:minmax(0,1fr);gap:4px}
+  .monteur-app .monteur-review dt{font-weight:600;margin-top:9px}
+  .monteur-app .monteur-review dd{font-size:17px}
+  .monteur-app .monteur-header img{width:76px}
+}
+@media(max-width:600px){
+  .monteur-app .todo-inputs>label:not(.todo-search){flex:1 1 100%}
+  .monteur-app .todo-inputs .todo-author-fixed{flex-direction:row;flex-wrap:wrap;align-items:center;gap:8px;padding:2px 0}
+}

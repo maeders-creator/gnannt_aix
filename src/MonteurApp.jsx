@@ -4,6 +4,7 @@ import ProjectTodos from './ProjectTodos'
 import { createMonteurApi, MONTEUR_SESSION, readMonteurToken } from './monteurApi'
 import { EMPLOYEES, ProjectDetail, MonteurHub, MonteurDashboard, MonteurCalendar } from './MonteurViews'
 import './monteur.css'
+import './monteur-readable.css'
 
 const blank = actor => ({ requestId: crypto.randomUUID(), projekt: '', kunde: '', ort: '', adresse: '', telefon: '', lead: EMPLOYEES.includes(actor.name) ? actor.name : '', team: EMPLOYEES.includes(actor.name) ? [actor.name] : [], termin: '', uhrzeit: '', prioritaet: 'Mittel', notiz: '' })
 
