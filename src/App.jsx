@@ -247,7 +247,7 @@ function KnowledgeBaseLive() {
 
     if (file) {
       const safeName = file.name.replace(/[^a-zA-Z0-9_.-]/g, '_')
-      const path = `knowledge/${Date.now()}_${safeName}`
+      const path = `knowledge/${crypto.randomUUID()}_${safeName}`
       const { error: upErr } = await supabase.storage.from('uploads').upload(path, file, { upsert: false, contentType: file.type || 'application/octet-stream' })
 
       if (upErr) {
@@ -847,9 +847,8 @@ export default function App() {
     setUploading(true)
     setError('')
 
-    const ext = file.name.split('.').pop() || 'pdf'
     const safeName = file.name.replace(/[^a-zA-Z0-9_.-]/g, '_')
-    const path = `projects/${projectId}_${Date.now()}_${safeName}`
+    const path = `projects/${projectId}_${crypto.randomUUID()}_${safeName}`
 
     const { error: upErr } = await supabase.storage
       .from(STORAGE_BUCKET)
