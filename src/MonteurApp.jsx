@@ -1,3 +1,4 @@
+import Calculator, { hasCalculatorAccess } from './Calculator'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ArrowLeft, Check, ChevronRight, LogOut, RefreshCw, Smartphone, X, ListTodo, BookOpen, LayoutDashboard, CalendarDays } from 'lucide-react'
 import ProjectTodos from './ProjectTodos'
@@ -66,6 +67,8 @@ function InstallHelp({ onClose }) {
 export default function MonteurApp() {
   const [token, setToken] = useState(readMonteurToken)
   const api = useMemo(() => createMonteurApi(token), [token])
+  const [calculatorAllowed, setCalculatorAllowed] = useState(false)
+  useEffect(() => {let active=true;setCalculatorAllowed(false);if(token)hasCalculatorAccess(token).then(allowed=>{if(active)setCalculatorAllowed(allowed)});return()=>{active=false}},[token])
   const [actor, setActor] = useState(null)
   const [items, setItems] = useState([])
   const [loading, setLoading] = useState(Boolean(token))
@@ -108,8 +111,8 @@ export default function MonteurApp() {
         {error && <p className="monteur-error" role="alert">{error}</p>}
         {saved && <div className="monteur-saved" role="status"><Check size={20}/><div><strong>Auftrag eingestellt</strong><span>{saved.projekt} · von {saved.created_by_name}</span></div><button onClick={() => setSaved(null)} aria-label="Bestätigung schließen"><X size={18}/></button></div>}
         {detail ? <ProjectDetail key={detail.id} project={detail} api={api} online={online} onSaved={apply} onClose={() => setDetailId(null)}/> : <>
-          <nav className="monteur-nav" aria-label="Monteur-Bereiche">{[['list', 'To-dos', ListTodo], ['hub', 'Hub', BookOpen], ['dashboard', 'Dashboard', LayoutDashboard], ['calendar', 'Kalender', CalendarDays]].map(([key, label, Icon]) => <button key={key} aria-current={view === key ? 'page' : undefined} onClick={() => { setView(key); setSaved(null) }}><Icon size={21}/>{label}</button>)}</nav>
-          {view === 'hub' ? <MonteurHub api={api}/> : view === 'dashboard' ? <MonteurDashboard items={items} actor={actor} onOpen={openDetail}/> : view === 'calendar' ? <MonteurCalendar items={items} onOpen={openDetail}/> : <ProjectTodos items={items} employees={EMPLOYEES} online={online} fixedAuthor={actor.name} personalName={EMPLOYEES.includes(actor.name) ? actor.name : ''} onAdd={() => { setSaved(null); setView('new') }} onEdit={openDetail} onComment={(id, comment) => action('comment', { id, comment })} onComplete={project => action('complete', { id: project.id, previousStatus: project.status })} onReopen={project => action('reopen', { id: project.id })} onUndo={project => action('reopen', { id: project.id })}/>}
+          <nav className="monteur-nav" aria-label="Monteur-Bereiche">{[['list', 'To-dos', ListTodo], ['hub', 'Hub', BookOpen], ['dashboard', 'Dashboard', LayoutDashboard], ['calendar', 'Kalender', CalendarDays], ...(calculatorAllowed ? [['calculator', 'Kalkulator', LayoutDashboard]] : [])].map(([key, label, Icon]) => <button key={key} aria-current={view === key ? 'page' : undefined} onClick={() => { setView(key); setSaved(null) }}><Icon size={21}/>{label}</button>)}</nav>
+          {view === 'calculator' && calculatorAllowed ? <Calculator token={token}/> : view === 'hub' ? <MonteurHub api={api}/> : view === 'dashboard' ? <MonteurDashboard items={items} actor={actor} onOpen={openDetail}/> : view === 'calendar' ? <MonteurCalendar items={items} onOpen={openDetail}/> : <ProjectTodos items={items} employees={EMPLOYEES} online={online} fixedAuthor={actor.name} personalName={EMPLOYEES.includes(actor.name) ? actor.name : ''} onAdd={() => { setSaved(null); setView('new') }} onEdit={openDetail} onComment={(id, comment) => action('comment', { id, comment })} onComplete={project => action('complete', { id: project.id, previousStatus: project.status })} onReopen={project => action('reopen', { id: project.id })} onUndo={project => action('reopen', { id: project.id })}/>}
         </>}
       </>}
     </>}

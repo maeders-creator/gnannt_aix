@@ -1,3 +1,4 @@
+import Calculator, { plannerCalculatorLogin } from './Calculator'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createClient } from '@supabase/supabase-js'
 import ProjectTodos from './ProjectTodos'
@@ -565,6 +566,7 @@ export default function App() {
   const [password, setPassword] = useState('')
   const [screenUser, setScreenUser] = useState('')
   const [screenPassword, setScreenPassword] = useState('')
+  const [plannerSession, setPlannerSession] = useState('')
   const [screenUnlocked, setScreenUnlocked] = useState(() => sessionStorage.getItem('gnannt_screen_unlocked') === '1')
   const [localUser, setLocalUser] = useState(null)
   const [loginError, setLoginError] = useState('')
@@ -653,19 +655,22 @@ export default function App() {
     setLoginError('Benutzername oder Passwort ist falsch.')
   }
 
-  const planerLogin = () => {
+  const planerLogin = async () => {
     setLoginError('')
     setLoginInfo('')
-    if (username.trim() === 'Planer' && password === 'Planung') {
+    try {
+      const calculatorSession = await plannerCalculatorLogin(username.trim(), password)
+      setPlannerSession(calculatorSession)
+      {
       setLocalUser({ email: 'Planer', role: 'planer' })
       setUser({ email: 'Planer', role: 'planer' })
       return
     }
-    setLoginError('Benutzername oder Passwort ist falsch.')
+    } catch (error) { setLoginError(error.message || 'Benutzername oder Passwort ist falsch.') }
   }
 
   const login = async () => { setLoginError(''); setLoginInfo(''); if (!email.trim()) { setLoginError('Bitte E-Mail eingeben.'); return }; const { error } = await supabase.auth.signInWithOtp({ email: email.trim(), options: { emailRedirectTo: `${window.location.origin}${window.location.pathname}` } }); if (error) setLoginError(error.message); else setLoginInfo('Magic Link wurde versendet.') }
-  const logout = async () => { await supabase.auth.signOut(); setUser(null); setLocalUser(null); setUsername(''); setPassword('') }
+  const logout = async () => { await supabase.auth.signOut(); setPlannerSession(''); setUser(null); setLocalUser(null); setUsername(''); setPassword('') }
   const syncQueue = async () => {
     const q = readQueue()
     if (!q.length || !navigator.onLine) return
@@ -865,6 +870,7 @@ export default function App() {
   ['kalender','Kalender'],
   ['uploads','PDF Uploads'],
   ['ruben','Ruben'],
-  ['team','Team']
-].map(([t,label]) => <button key={t} className={tab===t ? 'active' : ''} onClick={() => setTab(t)}>{label}</button>)}</nav>{loading && !items.length ? <div className="panel center">Lade Projekte...</div> : tab === 'todos' ? <ProjectTodos items={items} employees={EMPLOYEES} online={online} onComment={commentTodo} onComplete={finishTodo} onReopen={reopenTodo} onUndo={undoTodo} onEdit={edit} onAdd={() => { setForm(EMPTY); setPendingFile(null); setModal(true) }}/> : tab === 'planung' ? <div className="stack">{grouped.map(g => <div key={g.status} className="panel" onDragOver={e => e.preventDefault()} onDrop={() => dragged && updateStatus(dragged, g.status)}><div className="panel-head"><h3>{g.status}</h3><span className={badgeClass(g.status)}>{g.items.length}</span></div><p className="tiny">Drag & Drop zwischen Statusbereichen aktiv</p><div className="grid">{g.items.length ? g.items.map(x => <Card key={x.id} item={x} onEdit={edit} onStatus={updateStatus} draggable onDragStart={() => setDragged(x.id)} />) : <div className="empty">Keine offenen Projekte</div>}</div></div>)}{archived.length > 0 && <div className="panel"><h3>Archiv</h3><div className="grid">{archived.map(x => <Card key={x.id} item={x} onEdit={edit} onStatus={updateStatus}/>)}</div></div>}</div> : tab === 'hub' ? <KnowledgeBaseLive/> : tab === 'dashboard' ? <Dashboard active={active} archived={archived}/> : tab === 'kalender' ? <Calendar items={active} edit={edit}/> : tab === 'uploads' ? <Uploads items={items} edit={edit}/> : <Team user={user} items={tab === 'ruben' ? items.filter(x => x.status === 'MONTAGE' || x.lead === 'Ruben') : items}/>}<Modal open={modal} close={() => setModal(false)}><Form form={form} setForm={setForm} save={save} saving={saving} upload={upload} uploading={uploading} pendingFile={pendingFile} setPendingFile={setPendingFile} /></Modal></div></div>
+  ['team','Team'],
+  ...(user?.role === 'planer' ? [['calculator','Fensterkalkulator']] : [])
+].map(([t,label]) => <button key={t} className={tab===t ? 'active' : ''} onClick={() => setTab(t)}>{label}</button>)}</nav>{loading && !items.length ? <div className="panel center">Lade Projekte...</div> : tab === 'todos' ? <ProjectTodos items={items} employees={EMPLOYEES} online={online} onComment={commentTodo} onComplete={finishTodo} onReopen={reopenTodo} onUndo={undoTodo} onEdit={edit} onAdd={() => { setForm(EMPTY); setPendingFile(null); setModal(true) }}/> : tab === 'planung' ? <div className="stack">{grouped.map(g => <div key={g.status} className="panel" onDragOver={e => e.preventDefault()} onDrop={() => dragged && updateStatus(dragged, g.status)}><div className="panel-head"><h3>{g.status}</h3><span className={badgeClass(g.status)}>{g.items.length}</span></div><p className="tiny">Drag & Drop zwischen Statusbereichen aktiv</p><div className="grid">{g.items.length ? g.items.map(x => <Card key={x.id} item={x} onEdit={edit} onStatus={updateStatus} draggable onDragStart={() => setDragged(x.id)} />) : <div className="empty">Keine offenen Projekte</div>}</div></div>)}{archived.length > 0 && <div className="panel"><h3>Archiv</h3><div className="grid">{archived.map(x => <Card key={x.id} item={x} onEdit={edit} onStatus={updateStatus}/>)}</div></div>}</div> : tab === 'calculator' ? <Calculator plannerSession={plannerSession}/> : tab === 'hub' ? <KnowledgeBaseLive/> : tab === 'dashboard' ? <Dashboard active={active} archived={archived}/> : tab === 'kalender' ? <Calendar items={active} edit={edit}/> : tab === 'uploads' ? <Uploads items={items} edit={edit}/> : <Team user={user} items={tab === 'ruben' ? items.filter(x => x.status === 'MONTAGE' || x.lead === 'Ruben') : items}/>}<Modal open={modal} close={() => setModal(false)}><Form form={form} setForm={setForm} save={save} saving={saving} upload={upload} uploading={uploading} pendingFile={pendingFile} setPendingFile={setPendingFile} /></Modal></div></div>
 }
