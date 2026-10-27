@@ -1,3 +1,4 @@
+import { createPlannerClient } from './plannerClient.mjs'
 import Calculator, { plannerCalculatorLogin } from './Calculator'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createClient } from '@supabase/supabase-js'
@@ -566,7 +567,7 @@ export default function App() {
   const [password, setPassword] = useState('')
   const [screenUser, setScreenUser] = useState('')
   const [screenPassword, setScreenPassword] = useState('')
-  const [plannerSession, setPlannerSession] = useState('')
+  const [plannerSession, setPlannerSession] = useState(() => { try { return sessionStorage.getItem('gnannt_planner_session_v1') || '' } catch { return '' } })
   const [screenUnlocked, setScreenUnlocked] = useState(() => sessionStorage.getItem('gnannt_screen_unlocked') === '1')
   const [localUser, setLocalUser] = useState(null)
   const [loginError, setLoginError] = useState('')
@@ -577,14 +578,17 @@ export default function App() {
   const loadVersion = useRef(0)
   const [now, setNow] = useState(new Date())
 
+  const projectClient = useMemo(() => plannerSession ? createPlannerClient(plannerSession) : supabase, [plannerSession])
+  useEffect(() => { if (plannerSession) setUser({ email: 'Planer', role: 'planer' }) }, [plannerSession])
   const isScreen = window.location.hash === PUBLIC_SCREEN_HASH
   const week = currentProductionWeek(now)
   const weekItems = useMemo(() => productionWeekItems(items, week), [items, week.start, week.end])
   useScreenAutoScroll(screenRef, tab === 'screen' && (!isScreen || screenUnlocked), week.start)
   const load = async ({ silent = false } = {}) => {
+    if (!plannerSession && !user) { setLoading(false); return }
     const version = ++loadVersion.current
     if (!silent) setLoading(true)
-    const { data, error } = await supabase.from('projects').select('*').order('created_at', { ascending: false })
+    const { data, error } = await projectClient.from('projects').select('*').order('created_at', { ascending: false })
     if (version !== loadVersion.current) return
     if (error) {
       setError('Projekte konnten nicht aktualisiert werden: ' + error.message)
@@ -603,31 +607,31 @@ export default function App() {
   }
   const commentTodo = async (id, text, author) => {
     if (!navigator.onLine) throw new Error('Bitte zum Speichern wieder online gehen.')
-    applyTodoProject(await appendProjectComment(supabase, id, text, author))
+    applyTodoProject(await appendProjectComment(projectClient, id, text, author))
   }
   const finishTodo = async project => {
     if (!navigator.onLine) throw new Error('Bitte zum Abhaken wieder online gehen.')
-    applyTodoProject(await completeProject(supabase, project))
+    applyTodoProject(await completeProject(projectClient, project))
   }
   const reopenTodo = async project => {
     if (!navigator.onLine) throw new Error('Bitte zum Speichern wieder online gehen.')
-    applyTodoProject(await completeProject(supabase, project, project.status_before_done || 'AUFMASS'))
+    applyTodoProject(await completeProject(projectClient, project, project.status_before_done || 'AUFMASS'))
   }
   const undoTodo = async project => {
     if (!navigator.onLine) throw new Error('Bitte zum Speichern wieder online gehen.')
-    applyTodoProject(await completeProject(supabase, { ...project, status: 'ERLEDIGT' }, project.status || 'AUFMASS'))
+    applyTodoProject(await completeProject(projectClient, { ...project, status: 'ERLEDIGT' }, project.status || 'AUFMASS'))
   }
   useEffect(() => {
-    if (tab !== 'todos' && tab !== 'screen') return
+    if (!plannerSession && !user) return
     const refresh = () => { if (navigator.onLine && document.visibilityState === 'visible') load({ silent: true }) }
     refresh()
     const timer = setInterval(refresh, 30000)
     window.addEventListener('focus', refresh)
     document.addEventListener('visibilitychange', refresh)
     return () => { clearInterval(timer); window.removeEventListener('focus', refresh); document.removeEventListener('visibilitychange', refresh) }
-  }, [tab])
+  }, [tab, plannerSession, user])
 
-  useEffect(() => { load() }, [])
+  useEffect(() => { load() }, [plannerSession, user])
 
   useEffect(() => {
     const goOnline = () => { setOnline(true); syncQueue() }
@@ -636,7 +640,7 @@ export default function App() {
     window.addEventListener('offline', goOffline)
     return () => { window.removeEventListener('online', goOnline); window.removeEventListener('offline', goOffline) }
   }, [])
-  useEffect(() => { supabase.auth.getSession().then(({ data }) => { if (data.session?.user) setUser({ email: data.session.user.email, role: 'user' }) }); const { data } = supabase.auth.onAuthStateChange((_event, session) => setUser(session?.user ? { email: session.user.email, role: 'user' } : null)); return () => data.subscription.unsubscribe() }, [])
+  useEffect(() => { supabase.auth.getSession().then(({ data }) => { if (data.session?.user) setUser({ email: data.session.user.email, role: 'user' }) }); const { data } = supabase.auth.onAuthStateChange((_event, session) => setUser(session?.user ? { email: session.user.email, role: 'user' } : plannerSession ? { email: 'Planer', role: 'planer' } : null)); return () => data.subscription.unsubscribe() }, [plannerSession])
   useEffect(() => { const channel = supabase.channel('projects-live').on('postgres_changes', { event: '*', schema: 'public', table: 'projects' }, () => load({ silent: true })).subscribe(s => setConnected(s === 'SUBSCRIBED')); return () => supabase.removeChannel(channel) }, [])
   useEffect(() => { const onHash = () => { if (window.location.hash === PUBLIC_SCREEN_HASH) setTab('screen') }; window.addEventListener('hashchange', onHash); return () => window.removeEventListener('hashchange', onHash) }, [])
   useEffect(() => { const timer = setInterval(() => setNow(new Date()), 1000); return () => clearInterval(timer) }, [])
@@ -660,6 +664,7 @@ export default function App() {
     setLoginInfo('')
     try {
       const calculatorSession = await plannerCalculatorLogin(username.trim(), password)
+      try { sessionStorage.setItem('gnannt_planner_session_v1', calculatorSession) } catch {}
       setPlannerSession(calculatorSession)
       {
       setLocalUser({ email: 'Planer', role: 'planer' })
@@ -670,7 +675,7 @@ export default function App() {
   }
 
   const login = async () => { setLoginError(''); setLoginInfo(''); if (!email.trim()) { setLoginError('Bitte E-Mail eingeben.'); return }; const { error } = await supabase.auth.signInWithOtp({ email: email.trim(), options: { emailRedirectTo: `${window.location.origin}${window.location.pathname}` } }); if (error) setLoginError(error.message); else setLoginInfo('Magic Link wurde versendet.') }
-  const logout = async () => { await supabase.auth.signOut(); setPlannerSession(''); setUser(null); setLocalUser(null); setUsername(''); setPassword('') }
+  const logout = async () => { await supabase.auth.signOut(); try { sessionStorage.removeItem('gnannt_planner_session_v1') } catch {} setItems([]); setError(''); setPlannerSession(''); setUser(null); setLocalUser(null); setUsername(''); setPassword('') }
   const syncQueue = async () => {
     const q = readQueue()
     if (!q.length || !navigator.onLine) return
@@ -682,13 +687,13 @@ export default function App() {
           const payload = { ...op.payload }
           delete payload.__offline
           delete payload.offline_id
-          const { error } = await supabase.from('projects').insert(payload)
+          const { error } = await projectClient.from('projects').insert(payload)
           if (error) remaining.push(op)
         } else if (op.type === 'update') {
           const payload = { ...op.payload }
           delete payload.__offline
           delete payload.offline_id
-          const { error } = await supabase.from('projects').update(payload).eq('id', op.id)
+          const { error } = await projectClient.from('projects').update(payload).eq('id', op.id)
           if (error) remaining.push(op)
         }
       } catch {
@@ -715,14 +720,14 @@ export default function App() {
     let savedId = form.id
 
     if (form.id && !String(form.id).startsWith('offline_')) {
-      result = await supabase
+      result = await projectClient
         .from('projects')
         .update(payload)
         .eq('id', form.id)
         .select()
         .single()
     } else {
-      result = await supabase
+      result = await projectClient
         .from('projects')
         .insert(payload)
         .select()
@@ -756,7 +761,7 @@ export default function App() {
   const edit = (item) => { setForm({ ...EMPTY, ...item }); setModal(true) }
   const updateStatus = async (id, status) => {
     setError('')
-    const { error } = await supabase
+    const { error } = await projectClient
       .from('projects')
       .update({ status })
       .eq('id', id)
@@ -790,7 +795,7 @@ export default function App() {
 
     const { data } = supabase.storage.from(STORAGE_BUCKET).getPublicUrl(path)
 
-    const { error: dbErr } = await supabase
+    const { error: dbErr } = await projectClient
       .from('projects')
       .update({ attachment_name: file.name, attachment_url: data.publicUrl })
       .eq('id', projectId)
@@ -856,7 +861,7 @@ export default function App() {
         {loading && !items.length ? (
           <div className="screen-empty">Lade Daten...</div>
         ) : (
-          <ProductionWeek items={weekItems} week={week} online={online} onComplete={finishTodo} onUndo={undoTodo} onStart={async item => { if (!navigator.onLine) throw new Error('Bitte zum Speichern wieder online gehen.'); applyTodoProject(await completeProject(supabase, item, 'IN_ARBEIT')) }} />
+          <ProductionWeek items={weekItems} week={week} online={online} onComplete={finishTodo} onUndo={undoTodo} onStart={async item => { if (!navigator.onLine) throw new Error('Bitte zum Speichern wieder online gehen.'); applyTodoProject(await completeProject(projectClient, item, 'IN_ARBEIT')) }} />
         )}
       </div>
     </div>
