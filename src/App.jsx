@@ -1,5 +1,7 @@
+import {createKnowledgeClient} from './knowledgeClient.mjs'
+import KnowledgeBaseLive from './KnowledgeBase'
 import { createPlannerClient } from './plannerClient.mjs'
-import Calculator, { plannerCalculatorLogin } from './Calculator'
+import Calculator, { plannerCalculatorLogin, openCalculatorWindow } from './Calculator'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createClient } from '@supabase/supabase-js'
 import ProjectTodos from './ProjectTodos'
@@ -203,157 +205,6 @@ function printJobPdf(item) {
   <tr><td>Notiz / Besonderheiten</td><td class="note">${esc(item.notiz)}</td></tr>
   </table><div class="footer"><div><div class="sign">Montage / Produktion</div></div><div><div class="sign">Kontrolle / Freigabe</div></div></div><div class="actions">Über den Druckdialog kann dieser Auftrag als PDF gespeichert oder ausgedruckt werden.</div><script>window.onload=()=>setTimeout(()=>window.print(),300)</script></body></html>`
   win.document.open(); win.document.write(html); win.document.close()
-}
-
-
-function KnowledgeBaseLive() {
-  const [docs, setDocs] = useState([])
-  const [kbSearch, setKbSearch] = useState('')
-  const [category, setCategory] = useState('ALLE')
-  const [title, setTitle] = useState('')
-  const [docCategory, setDocCategory] = useState('Montage Akademie')
-  const [url, setUrl] = useState('')
-  const [file, setFile] = useState(null)
-  const [kbError, setKbError] = useState('')
-  const [kbLoading, setKbLoading] = useState(false)
-
-  const categories = [
-    { title: 'Montage Akademie', icon: '🛠️', text: 'Montageanleitungen, Videos, Checklisten und Standards für Monteure.' },
-    { title: 'Sicherheitsunterweisung', icon: '🦺', text: 'Jährliche Unterweisungen, Baustellensicherheit, Maschinen, PSA und Nachweise.' },
-    { title: 'Aufmaß', icon: '📏', text: 'Digitales Aufmaß, Fotos, PDF-Aufmaßblätter und Freigabeprozess.' },
-    { title: 'Dokumente & Videos', icon: '📚', text: 'Zentrale Ablage für PDFs, Videos, Herstellerinformationen und interne Standards.' }
-  ]
-
-  const categoryNames = categories.map(c => c.title)
-
-  const loadDocs = async () => {
-    setKbLoading(true)
-    const { data, error } = await supabase.from('knowledge_docs').select('*').order('created_at', { ascending: false })
-    if (error) {
-      setKbError('Wissensdatenbank konnte nicht geladen werden: ' + error.message)
-      setDocs([])
-    } else {
-      setKbError('')
-      setDocs(data || [])
-    }
-    setKbLoading(false)
-  }
-
-  useEffect(() => { loadDocs() }, [])
-
-  const saveDoc = async () => {
-    if (!title.trim()) {
-      setKbError('Bitte Titel eingeben.')
-      return
-    }
-
-    setKbLoading(true)
-    setKbError('')
-    let finalUrl = url
-    let finalFileName = ''
-
-    if (file) {
-      const safeName = file.name.replace(/[^a-zA-Z0-9_.-]/g, '_')
-      const path = `knowledge/${crypto.randomUUID()}_${safeName}`
-      const { error: upErr } = await supabase.storage.from('uploads').upload(path, file, { upsert: false, contentType: file.type || 'application/octet-stream' })
-
-      if (upErr) {
-        setKbError('Upload fehlgeschlagen: ' + upErr.message)
-        setKbLoading(false)
-        return
-      }
-
-      const { data } = supabase.storage.from('uploads').getPublicUrl(path)
-      finalUrl = data.publicUrl
-      finalFileName = file.name
-    }
-
-    const { error } = await supabase.from('knowledge_docs').insert({
-      title,
-      category: docCategory,
-      type: file ? 'file' : 'link',
-      file_name: finalFileName,
-      url: finalUrl
-    })
-
-    if (error) setKbError('Speichern fehlgeschlagen: ' + error.message)
-    else {
-      setTitle('')
-      setUrl('')
-      setFile(null)
-      await loadDocs()
-    }
-
-    setKbLoading(false)
-  }
-
-  const filteredDocs = docs.filter(d => {
-    const hay = [d.title, d.category, d.file_name, d.url].join(' ').toLowerCase()
-    return (category === 'ALLE' || d.category === category) && (!kbSearch || hay.includes(kbSearch.toLowerCase()))
-  })
-
-  return (
-    <div className="knowledge-live">
-      <div className="hub-hero">
-        <h2>GNANNT HUB</h2>
-        <p>Montagewissen, Sicherheitsunterweisung, Aufmaß und Dokumente zentral verwalten.</p>
-      </div>
-
-      <div className="hub-grid">
-        {categories.map(c => (
-          <button className={'hub-card hub-card-button ' + (category === c.title ? 'selected' : '')} key={c.title} onClick={() => setCategory(c.title)}>
-            <div className="hub-icon">{c.icon}</div>
-            <h3>{c.title}</h3>
-            <p>{c.text}</p>
-          </button>
-        ))}
-      </div>
-
-      <div className="kb-layout">
-        <div className="kb-panel">
-          <h3>Neuen Eintrag hinzufügen</h3>
-          <input className="input" placeholder="Titel" value={title} onChange={e => setTitle(e.target.value)} />
-          <select className="input" value={docCategory} onChange={e => setDocCategory(e.target.value)}>
-            {categoryNames.map(c => <option key={c}>{c}</option>)}
-          </select>
-          <input className="input" placeholder="Video-Link oder externe URL optional" value={url} onChange={e => setUrl(e.target.value)} />
-          <input className="input" type="file" accept="application/pdf,video/*,image/*" onChange={e => setFile(e.target.files?.[0] || null)} />
-          {file && <div className="tiny">Datei ausgewählt: {file.name}</div>}
-          {kbError && <div className="error">{kbError}</div>}
-          <button className="btn primary full" onClick={saveDoc} disabled={kbLoading}>{kbLoading ? 'Speichert...' : 'Speichern'}</button>
-        </div>
-
-        <div className="kb-panel">
-          <div className="kb-title-row">
-            <h3>Dokumente / Videos</h3>
-            <button className="btn small outline" onClick={() => setCategory('ALLE')}>Alle anzeigen</button>
-          </div>
-          <div className="kb-filters">
-            <input className="input" placeholder="Suchen..." value={kbSearch} onChange={e => setKbSearch(e.target.value)} />
-            <select className="input" value={category} onChange={e => setCategory(e.target.value)}>
-              <option>ALLE</option>
-              {categoryNames.map(c => <option key={c}>{c}</option>)}
-            </select>
-          </div>
-
-          {kbLoading && <div className="tiny">Lade Wissensdatenbank...</div>}
-          {!kbLoading && filteredDocs.length === 0 && <div className="empty">Noch keine Einträge vorhanden.</div>}
-
-          <div className="kb-list">
-            {filteredDocs.map(doc => (
-              <div className="kb-item" key={doc.id}>
-                <div>
-                  <strong>{doc.title}</strong>
-                  <p>{doc.category} · {formatDateDE(doc.created_at)} · {doc.file_name || doc.type || 'Link'}</p>
-                </div>
-                {doc.url && <a className="btn small outline" href={doc.url} target="_blank" rel="noreferrer">Öffnen</a>}
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    </div>
-  )
 }
 
 
@@ -578,6 +429,7 @@ export default function App() {
   const loadVersion = useRef(0)
   const [now, setNow] = useState(new Date())
 
+  const knowledgeClient=useMemo(()=>plannerSession?createKnowledgeClient(plannerSession):supabase,[plannerSession])
   const projectClient = useMemo(() => plannerSession ? createPlannerClient(plannerSession) : supabase, [plannerSession])
   useEffect(() => { if (plannerSession) setUser({ email: 'Planer', role: 'planer' }) }, [plannerSession])
   const isScreen = window.location.hash === PUBLIC_SCREEN_HASH
@@ -877,5 +729,5 @@ export default function App() {
   ['ruben','Ruben'],
   ['team','Team'],
   ...(user?.role === 'planer' ? [['calculator','Fensterkalkulator']] : [])
-].map(([t,label]) => <button key={t} className={tab===t ? 'active' : ''} onClick={() => setTab(t)}>{label}</button>)}</nav>{loading && !items.length ? <div className="panel center">Lade Projekte...</div> : tab === 'todos' ? <ProjectTodos items={items} employees={EMPLOYEES} online={online} onComment={commentTodo} onComplete={finishTodo} onReopen={reopenTodo} onUndo={undoTodo} onEdit={edit} onAdd={() => { setForm(EMPTY); setPendingFile(null); setModal(true) }}/> : tab === 'planung' ? <div className="stack">{grouped.map(g => <div key={g.status} className="panel" onDragOver={e => e.preventDefault()} onDrop={() => dragged && updateStatus(dragged, g.status)}><div className="panel-head"><h3>{g.status}</h3><span className={badgeClass(g.status)}>{g.items.length}</span></div><p className="tiny">Drag & Drop zwischen Statusbereichen aktiv</p><div className="grid">{g.items.length ? g.items.map(x => <Card key={x.id} item={x} onEdit={edit} onStatus={updateStatus} draggable onDragStart={() => setDragged(x.id)} />) : <div className="empty">Keine offenen Projekte</div>}</div></div>)}{archived.length > 0 && <div className="panel"><h3>Archiv</h3><div className="grid">{archived.map(x => <Card key={x.id} item={x} onEdit={edit} onStatus={updateStatus}/>)}</div></div>}</div> : tab === 'calculator' ? <Calculator plannerSession={plannerSession}/> : tab === 'hub' ? <KnowledgeBaseLive/> : tab === 'dashboard' ? <Dashboard active={active} archived={archived}/> : tab === 'kalender' ? <Calendar items={active} edit={edit}/> : tab === 'uploads' ? <Uploads items={items} edit={edit}/> : <Team user={user} items={tab === 'ruben' ? items.filter(x => x.status === 'MONTAGE' || x.lead === 'Ruben') : items}/>}<Modal open={modal} close={() => setModal(false)}><Form form={form} setForm={setForm} save={save} saving={saving} upload={upload} uploading={uploading} pendingFile={pendingFile} setPendingFile={setPendingFile} /></Modal></div></div>
+].map(([t,label]) => <button key={t} className={tab===t ? 'active' : ''} onClick={() => {if(t==='calculator'&&openCalculatorWindow({plannerSession}))return;setTab(t)}}>{label}</button>)}</nav>{loading && !items.length ? <div className="panel center">Lade Projekte...</div> : tab === 'todos' ? <ProjectTodos items={items} employees={EMPLOYEES} online={online} onComment={commentTodo} onComplete={finishTodo} onReopen={reopenTodo} onUndo={undoTodo} onEdit={edit} onAdd={() => { setForm(EMPTY); setPendingFile(null); setModal(true) }}/> : tab === 'planung' ? <div className="stack">{grouped.map(g => <div key={g.status} className="panel" onDragOver={e => e.preventDefault()} onDrop={() => dragged && updateStatus(dragged, g.status)}><div className="panel-head"><h3>{g.status}</h3><span className={badgeClass(g.status)}>{g.items.length}</span></div><p className="tiny">Drag & Drop zwischen Statusbereichen aktiv</p><div className="grid">{g.items.length ? g.items.map(x => <Card key={x.id} item={x} onEdit={edit} onStatus={updateStatus} draggable onDragStart={() => setDragged(x.id)} />) : <div className="empty">Keine offenen Projekte</div>}</div></div>)}{archived.length > 0 && <div className="panel"><h3>Archiv</h3><div className="grid">{archived.map(x => <Card key={x.id} item={x} onEdit={edit} onStatus={updateStatus}/>)}</div></div>}</div> : tab === 'calculator' ? <Calculator plannerSession={plannerSession}/> : tab === 'hub' ? <KnowledgeBaseLive supabase={knowledgeClient}/> : tab === 'dashboard' ? <Dashboard active={active} archived={archived}/> : tab === 'kalender' ? <Calendar items={active} edit={edit}/> : tab === 'uploads' ? <Uploads items={items} edit={edit}/> : <Team user={user} items={tab === 'ruben' ? items.filter(x => x.status === 'MONTAGE' || x.lead === 'Ruben') : items}/>}<Modal open={modal} close={() => setModal(false)}><Form form={form} setForm={setForm} save={save} saving={saving} upload={upload} uploading={uploading} pendingFile={pendingFile} setPendingFile={setPendingFile} /></Modal></div></div>
 }

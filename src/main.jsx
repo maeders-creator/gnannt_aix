@@ -1,3 +1,4 @@
+import CalculatorWindow from './CalculatorWindow.jsx'
 import React, { useEffect, useState } from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App.jsx'
@@ -16,9 +17,10 @@ function Root() {
     return () => window.removeEventListener('hashchange', route)
   }, [])
   useEffect(() => {
-    document.title = isMonteur ? 'Gnannt Monteure' : 'Gnannt Produktionsplanung'
+    document.title = new URLSearchParams(window.location.search).has('calculator') ? 'Gnannt · Fensterkalkulator' : isMonteur ? 'Gnannt Monteure' : 'Gnannt Produktionsplanung'
     document.querySelector('link[rel=manifest]').href = isMonteur ? '/monteur.webmanifest' : '/manifest.webmanifest'
   }, [isMonteur])
+  if(new URLSearchParams(window.location.search).has('calculator'))return <CalculatorWindow/>
   return isMonteur ? <MonteurApp key={hash}/> : <App />
 }
 

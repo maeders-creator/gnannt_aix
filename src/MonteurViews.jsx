@@ -1,3 +1,4 @@
+import {hubEntryCategories,groupedHubDocuments} from './hubCategories.mjs'
 import { useEffect, useState } from 'react'
 import { ArrowLeft, ChevronLeft, ChevronRight, ExternalLink, Pencil } from 'lucide-react'
 import { berlinDay, compareProjectUrgency, projectHasEmployee, projectTeamNames } from './projectTodos'
@@ -84,11 +85,11 @@ export function MonteurHub({ api }) {
     api('hub').then(result => { if (active) setDocs(result.documents) }).catch(e => { if (active) setError(e.message) }).finally(() => { if (active) setLoading(false) })
     return () => { active = false }
   }, [api, retry])
-  const categories = [...new Set(['Montage Akademie', 'Sicherheitsunterweisung', 'Aufmaß', 'Dokumente & Videos', ...docs.map(doc => doc.category).filter(Boolean)])]
-  const shown = docs.filter(doc => (category === 'Alle' || doc.category === category) && [doc.title, doc.file_name, doc.category].join(' ').toLocaleLowerCase('de').includes(search.trim().toLocaleLowerCase('de')))
+  const categories=hubEntryCategories(docs)
+  const groups=groupedHubDocuments(docs,category==='Alle'?'ALLE':category,search)
   return <section className="monteur-panel"><h1>Hub</h1><p className="monteur-subtitle">Anleitungen, Unterweisungen, Dokumente und Videos für unterwegs.</p><div className="monteur-fields"><label>Hub durchsuchen<input type="search" value={search} onChange={e => setSearch(e.target.value)} placeholder="Titel oder Dokument suchen"/></label><label>Bereich<select value={category} onChange={e => setCategory(e.target.value)}><option>Alle</option>{categories.map(name => <option key={name}>{name}</option>)}</select></label></div>
     {loading && <p role="status">Hub wird geladen…</p>}{error && <div className="monteur-error" role="alert">{error}<button className="monteur-secondary" onClick={() => setRetry(n => n + 1)}>Erneut laden</button></div>}
-    {!loading && !error && <div className="monteur-doc-list">{shown.map(doc => { const url = safeUrl(doc.url); return <article key={doc.id}><span>{doc.category || 'Dokumente'}</span><h2>{doc.title}</h2>{doc.file_name && <p>{doc.file_name}</p>}{url ? <a className="monteur-secondary" href={url} target="_blank" rel="noreferrer">Öffnen <ExternalLink size={16}/></a> : <p>Kein gültiger Link hinterlegt. Bitte im Büro ergänzen lassen.</p>}</article> })}{!shown.length && <p>{docs.length ? 'Keine passenden Dokumente.' : 'Im Hub sind noch keine Dokumente hinterlegt.'}</p>}</div>}
+    {!loading && !error && <div className="monteur-doc-list">{groups.map(group=><section className="monteur-hub-group" key={group.title}><h2>{group.title.replace('Dokumente & Videos / ','')}</h2>{group.documents.map(doc => { const url = safeUrl(doc.url); return <article key={doc.id}><span>{doc.category || 'Dokumente'}</span><h2>{doc.title}</h2>{doc.file_name && <p>{doc.file_name}</p>}{url ? <a className="monteur-secondary" href={url} target="_blank" rel="noreferrer">Öffnen <ExternalLink size={16}/></a> : <p>Kein gültiger Link hinterlegt. Bitte im Büro ergänzen lassen.</p>}</article> })}</section>)}{!groups.length && <p>{docs.length ? 'Keine passenden Dokumente.' : 'Im Hub sind noch keine Dokumente hinterlegt.'}</p>}</div>}
   </section>
 }
 
