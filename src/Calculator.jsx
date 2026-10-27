@@ -17,7 +17,7 @@ export default function Calculator({ token, plannerSession }) {
       const frame=frameRef.current?.contentWindow
       if(event.source!==frame||event.origin!==window.location.origin||event.data?.type!=='gnannt-calculator-store')return
       const {requestId,operation,data={}}=event.data
-      if(typeof requestId!=='string'||!['list','get','create','save'].includes(operation))return
+      if(typeof requestId!=='string'||!['list','get','create','save','delete'].includes(operation))return
       const controller=new AbortController();pending.add(controller)
       try {
         const r=await fetch(endpoint,{method:'POST',signal:controller.signal,headers:{'Content-Type':'application/json',...(token?{'x-monteur-token':token}:{}),...(plannerSession?{'x-planer-session':plannerSession}:{})},body:JSON.stringify({...data,action:'calculator-projects',op:operation})})
