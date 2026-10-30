@@ -7,6 +7,7 @@ function TodoRow({ item, today, author, onComment, onComplete, onReopen, onEdit,
   const [expanded, setExpanded] = useState(false)
   const [draft, setDraft] = useState('')
   const [busy, setBusy] = useState(false)
+  const busyRef = useRef(false)
   const [error, setError] = useState('')
   const done = item.status === 'ERLEDIGT'
   const createdDay = item.created_at ? berlinDay(new Date(item.created_at)) : ''
@@ -14,9 +15,11 @@ function TodoRow({ item, today, author, onComment, onComplete, onReopen, onEdit,
   const overdue = !done && item.termin && item.termin < today
   const lastNote = (item.notiz || '').trim().split('\n').filter(Boolean).slice(-1)[0]
   const act = async fn => {
+    if (busyRef.current || disabled) return
+    busyRef.current = true
     setBusy(true); setError('')
     try { await fn() } catch (e) { setError(e.message || 'Speichern fehlgeschlagen. Bitte erneut versuchen.') }
-    finally { setBusy(false) }
+    finally { busyRef.current = false; setBusy(false) }
   }
   return <article className={`todo-row ${done ? 'todo-done' : ''}`}>
     <div className="todo-summary">
@@ -38,7 +41,7 @@ function TodoRow({ item, today, author, onComment, onComplete, onReopen, onEdit,
       <div className="todo-history"><strong>Notizen & Kommentare</strong><p>{item.notiz || 'Noch keine Kommentare. Ergänze den nächsten Schritt oder eine Rückmeldung zur Montage.'}</p>{item.attachment_url && <a href={item.attachment_url} target="_blank" rel="noreferrer">Projekt-PDF öffnen</a>}</div>
       <form onSubmit={e => { e.preventDefault(); act(async () => { await onComment(item.id, draft, author); setDraft('') }) }}>
         <label htmlFor={`todo-comment-${item.id}`}>Kommentar hinzufügen{author ? ` · ${author}` : ''}</label>
-        <textarea id={`todo-comment-${item.id}`} value={draft} onChange={e => setDraft(e.target.value)} maxLength={2000} placeholder="Was ist zu tun? Was fehlt? Was wurde erledigt?" rows={3}/>
+        <textarea id={`todo-comment-${item.id}`} value={draft} disabled={busy} onChange={e => setDraft(e.target.value)} maxLength={2000} placeholder="Was ist zu tun? Was fehlt? Was wurde erledigt?" rows={3}/>
         <button className="btn primary small" disabled={busy || disabled || !draft.trim() || !author}>{busy ? 'Speichert…' : 'Kommentar speichern'}</button>
         {!author && <small>Bitte oben deinen Namen unter „Kommentar von“ wählen.</small>}
       </form>
