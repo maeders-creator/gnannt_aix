@@ -5,3 +5,7 @@ entrypoint = "./functions/monteur-api/index.ts"
 [functions.aufmass-api]
 verify_jwt = false
 entrypoint = "./functions/aufmass-api/index.ts"
+
+[functions.wuerth-oci]
+verify_jwt = false
+entrypoint = "./functions/wuerth-oci/index.ts"

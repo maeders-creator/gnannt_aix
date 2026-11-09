@@ -47,7 +47,42 @@ test('setup details toggle repeatedly and reset on reopening tab',async()=>{
 test('tab is registered inside authenticated app and does not appear on public screen path',()=>{
   const source=readFileSync('src/App.jsx','utf8')
   assert.match(source,/\['wuerth','Würth'\]/)
-  assert.match(source,/tab === 'wuerth' \? <WuerthCatalog\/>/)
+  assert.match(source,/tab === 'wuerth' \? <WuerthCatalog plannerSession=\{plannerSession\}\/>/)
   assert.ok(source.indexOf("if (tab === 'screen') return")<source.indexOf("['wuerth','Würth']"))
   assert.ok(source.indexOf('if (!user)')<source.indexOf("['wuerth','Würth']"))
+})
+const fakeLaunch={method:'POST',action:'https://eshop.wuerth.de/is-bin/INTERSHOP.enfinity/WFS/1401-B1-Site/de_DE/-/EUR/OCICatalogService-Inbound',fields:{ORGANIZATION:'DEMO',NAME:'DEMO',PASSWORD:'fake-test-only',HOOK_URL:'https://xhpwmebwvjpdhsjeyrug.supabase.co/functions/v1/wuerth-oci/return/'+'a'.repeat(43)}}
+function fakePopup(){
+ const popup={closed:false,focusCount:0,closeCount:0,focus(){this.focusCount++},close(){this.closed=true;this.closeCount++}}
+ popup.document={title:'',head:{append(){}},body:{replaceChildren(){}},createElement(){return {append(){},submit(){}}}}
+ return popup
+}
+test('repeated open focuses the tracked window and unmount closes it',async()=>{
+ const previousFetch=globalThis.fetch,previousWindow=globalThis.window;let launches=0,opens=0;const popup=fakePopup()
+ globalThis.window={open(){opens++;return popup}}
+ globalThis.fetch=async(_url,options)=>{const action=JSON.parse(options.body).action;if(action==='launch')launches++;return {ok:true,json:async()=>action==='status'?{configured:true}:{id:'a1111111-1111-4111-8111-111111111111',launch:fakeLaunch}}}
+ let view
+ try{
+  await act(async()=>{view=Renderer.create(React.createElement(Catalog,{plannerSession:'fake-login'}))})
+  const button=()=>view.root.findAllByType('button').find(n=>text(n)===' Katalog öffnen')||view.root.findAllByType('button').find(n=>text(n).includes('Katalog öffnen'))
+  await act(async()=>button().props.onClick());await act(async()=>button().props.onClick())
+  assert.equal(opens,1);assert.equal(launches,1);assert.equal(popup.focusCount,1)
+  await act(async()=>view.unmount());view=null;assert.equal(popup.closeCount,1)
+ }finally{await act(async()=>view?.unmount());globalThis.fetch=previousFetch;globalThis.window=previousWindow}
+})
+test('session change cancels pending launch, clears busy and never submits stale credentials',async()=>{
+ const previousFetch=globalThis.fetch,previousWindow=globalThis.window;const popup=fakePopup();let resolveLaunch
+ globalThis.window={open:()=>popup}
+ globalThis.fetch=async(_url,options)=>JSON.parse(options.body).action==='status'?{ok:true,json:async()=>({configured:true})}:await new Promise(resolve=>{resolveLaunch=resolve})
+ let view,pending
+ try{
+  await act(async()=>{view=Renderer.create(React.createElement(Catalog,{plannerSession:'old-login'}))})
+  const button=()=>view.root.findAllByType('button').find(n=>text(n).includes('Katalog öffnen'))
+  await act(async()=>{pending=button().props.onClick()})
+  assert.equal(button().props.disabled,true)
+  await act(async()=>view.update(React.createElement(Catalog,{plannerSession:'new-login'})))
+  assert.equal(button().props.disabled,false);assert.equal(popup.closed,true)
+  await act(async()=>{resolveLaunch({ok:true,json:async()=>({id:'a1111111-1111-4111-8111-111111111111',launch:fakeLaunch})});await pending})
+  assert.equal(view.root.findAllByType('button').some(n=>text(n)==='Auswahl abrufen'),false)
+ }finally{await act(async()=>view?.unmount());globalThis.fetch=previousFetch;globalThis.window=previousWindow}
 })
