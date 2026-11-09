@@ -17,9 +17,12 @@ function Root() {
     return () => window.removeEventListener('hashchange', route)
   }, [])
   useEffect(() => {
-    document.title = new URLSearchParams(window.location.search).has('calculator') ? 'Gnannt · Fensterkalkulator' : isMonteur ? 'Gnannt Monteure' : 'Gnannt Produktionsplanung'
+    document.title = new URLSearchParams(window.location.search).has('aufmass') ? 'Gnannt · Aufmaß' : new URLSearchParams(window.location.search).has('calculator') ? 'Gnannt · Fensterkalkulator' : isMonteur ? 'Gnannt Monteure' : 'Gnannt Produktionsplanung'
     document.querySelector('link[rel=manifest]').href = isMonteur ? '/monteur.webmanifest' : '/manifest.webmanifest'
   }, [isMonteur])
+  const aufmassMode = new URLSearchParams(window.location.search).get('aufmass')
+  if (aufmassMode === 'monteur') return <MonteurApp aufmassWindow/>
+  if (aufmassMode === 'planer') return <App aufmassWindow/>
   if(new URLSearchParams(window.location.search).has('calculator'))return <CalculatorWindow/>
   return isMonteur ? <MonteurApp key={hash}/> : <App />
 }
