@@ -1,4 +1,4 @@
-import { parseOciCart, buildCatalogLaunch, hashState, WUERTH_OCI_ENDPOINT, MAX_BODY_BYTES, OciError } from './oci.mjs'
+import { parseOciCart, buildCatalogLaunch, hashState, WUERTH_OCI_ENDPOINT, MAX_BODY_BYTES, OciError, safeProductImageUrl } from './oci.mjs'
 export const PORTAL = 'https://gnannt-aix-83xs.vercel.app'
 export const API = 'https://xhpwmebwvjpdhsjeyrug.supabase.co/functions/v1/wuerth-oci'
 const ORIGINS = [PORTAL,'https://gnannt-aix-83xs-maeders-9026s-projects.vercel.app','https://gnannt-aix-83xs-git-main-maeders-9026s-projects.vercel.app']
@@ -33,7 +33,13 @@ export function databaseStore(db) {
     async products(){
       const r=await db.from('wuerth_products').select('article_number,description,product_group,source_row').eq('source_key','top-artikel-fensterbau').order('product_group').order('description').limit(1000)
       if(r.error)throw new Error('products failed')
-      return r.data
+      const snapshots=await db.from('wuerth_product_catalog').select('article_number,items,imported_at').eq('source_key','top-artikel-fensterbau').limit(1000)
+      if(snapshots.error)throw new Error('catalog read failed')
+      const byArticle=new Map((snapshots.data||[]).map(row=>[row.article_number,{
+        items:row.items.map(item=>({...item,imageUrl:safeProductImageUrl(item.imageUrl),imageStatus:safeProductImageUrl(item.imageUrl)?'available':item.imageStatus==='unsupported'?'unsupported':'not_supplied'})),
+        importedAt:row.imported_at,source:'unverified_browser_return'
+      }]))
+      return r.data.map(product=>({...product,catalog:byArticle.get(product.article_number)||null}))
     },
     async create({id,ownerHash,stateHash}){
       const r=await db.rpc('wuerth_create_session',{p_id:id,p_owner:ownerHash,p_state:stateHash})

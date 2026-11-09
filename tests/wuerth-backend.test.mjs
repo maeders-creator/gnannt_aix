@@ -87,3 +87,27 @@ test('product table is service-read-only, RLS protected, and contains no prices'
  assert.match(sql,/grant select on public.wuerth_products to service_role/)
  assert.doesNotMatch(sql,/grant .*?(insert|update|delete)|price|Umsatz|Fakturamenge/i)
 })
+
+test('persistent catalog import remains service-only, exact-supplier-matched and atomic with callback acceptance',()=>{
+ const sql=readFileSync('supabase/WUERTH_PRODUCT_CATALOG.sql','utf8')
+ assert.doesNotMatch(sql,/security definer/i)
+ assert.match(sql,/enable row level security/)
+ assert.match(sql,/revoke all on public.wuerth_product_catalog from public,anon,authenticated/)
+ assert.match(sql,/status='pending' and expires_at>now\(\)/)
+ assert.ok(sql.indexOf('if session_id is null then return null')<sql.indexOf('insert into public.wuerth_product_catalog'))
+ assert.match(sql,/supplierArticle/);assert.doesNotMatch(sql,/materialNumber/)
+ assert.match(sql,/jsonb_agg\(i.item order by i.position\)/)
+ assert.match(sql,/on conflict\(source_key,article_number\)/)
+ assert.match(sql,/security invoker set search_path=''/)
+})
+test('database product reads include protected catalog snapshots and sanitize stored image URLs',async()=>{
+ const {databaseStore}=await import('../supabase/functions/wuerth-oci/handler.mjs')
+ const queried=[]
+ const db={from(name){queried.push(name);const query={select(){return query},eq(){return query},order(){return query},limit:async()=>({data:name==='wuerth_products'?[{article_number:'001',description:'Demo'}]:[{article_number:'001',imported_at:'2026-11-09T12:00:00Z',items:[{supplierArticle:'001',price:'0',priceUnit:'100',unit:'ST',currency:'EUR',imageUrl:'https://evil.invalid/p.jpg',imageStatus:'unsupported'}]}]})};return query}}
+ const products=await databaseStore(db).products()
+ assert.deepEqual(queried,['wuerth_products','wuerth_product_catalog'])
+ assert.equal(products[0].catalog.items[0].price,'0')
+ assert.equal(products[0].catalog.items[0].imageUrl,null)
+ assert.equal(products[0].catalog.importedAt,'2026-11-09T12:00:00Z')
+ assert.equal(products[0].catalog.source,'unverified_browser_return')
+})

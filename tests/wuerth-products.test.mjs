@@ -22,3 +22,19 @@ test('groups and searches are derived from supplied products, including leading 
  assert.equal(groupProducts(products,'','Dichtstoffe').length,1)
  assert.equal(groupProducts(products,'absent').length,0)
 })
+
+test('persistent imports are fallback only, with safe image coverage and exact matching',async()=>{
+ const {productItems,productImage,catalogCoverage,importDateLabel}=await import('../src/wuerthProducts.mjs')
+ const saved={supplierArticle:'001AB',price:'4.20',imageUrl:'https://eshop.wuerth.de/product.jpg'}
+ const product={article_number:'001 AB',catalog:{items:[saved]}}
+ assert.deepEqual(productItems(product),[saved])
+ const live={supplierArticle:'001AB',price:0}
+ assert.deepEqual(productItems(product,[live]),[live])
+ assert.deepEqual(productItems(product,[{supplierArticle:'002',price:9}]),[saved])
+ assert.deepEqual(catalogCoverage([product],[]),{prices:1,images:1})
+ assert.equal(productImage([{imageUrl:'https://evil.example/photo.jpg'}]).url,null)
+ assert.equal(productImage([{imageUrl:'https://eshop.wuerth.de/photo.jpg?token=secret'}]).url,null)
+ assert.equal(productImage([{imageStatus:'unsupported'}]).status,'unsupported')
+ assert.equal(productImage([]).status,'not_supplied')
+ assert.equal(importDateLabel('invalid'),'')
+})

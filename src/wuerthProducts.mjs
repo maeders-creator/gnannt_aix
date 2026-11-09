@@ -1,8 +1,9 @@
+import {safeProductImageUrl} from './integrations/wuerthOci.mjs'
 // Supplier numbers only: customer material numbers are not reliable product IDs.
 export const normalizeArticle = value => String(value ?? '').replace(/\s/g, '').toUpperCase()
 export function matchingPrices(product, items = []) {
   const article = normalizeArticle(product.article_number)
-  return article ? items.filter(item => normalizeArticle(item.supplierArticle) === article) : []
+  return article ? (Array.isArray(items) ? items : []).filter(item => normalizeArticle(item.supplierArticle) === article) : []
 }
 export function hasPrice(item) {
   return (typeof item.price === 'number' && Number.isFinite(item.price) && item.price >= 0) ||
@@ -24,4 +25,29 @@ export function groupProducts(products, query = '', selected = '') {
     groups.get(group).push(product)
   }
   return [...groups.entries()].sort(([a], [b]) => a.localeCompare(b, 'de'))
+}
+
+// The newest live selection wins only for products actually present in it.
+export function productItems(product, liveItems) {
+  const live = matchingPrices(product, liveItems)
+  return live.length ? live : matchingPrices(product, product.catalog?.items)
+}
+export function productImage(items = []) {
+  for (const item of items) {
+    const url = safeProductImageUrl(item.imageUrl)
+    if (url) return {url, status: 'available'}
+  }
+  return {url: null, status: items.some(item => item.imageStatus === 'unsupported' || item.imageUrl) ? 'unsupported' : 'not_supplied'}
+}
+export function catalogCoverage(products, liveItems) {
+  return products.reduce((counts, product) => {
+    const items = productItems(product, liveItems)
+    if (items.some(hasPrice)) counts.prices++
+    if (productImage(items).url) counts.images++
+    return counts
+  }, {prices: 0, images: 0})
+}
+export function importDateLabel(value) {
+  const date = new Date(value || '')
+  return Number.isNaN(date.getTime()) ? '' : new Intl.DateTimeFormat('de-DE', {dateStyle:'medium', timeStyle:'short', timeZone:'Europe/Berlin'}).format(date)
 }

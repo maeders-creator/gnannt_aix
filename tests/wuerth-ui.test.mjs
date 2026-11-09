@@ -132,3 +132,85 @@ test('OCI rendering preserves zero and different duplicate prices, rejects mater
   assert.doesNotMatch(text(view.root),/0 EUR je 100 ST|Deine Katalogauswahl/)
  }finally{await act(async()=>view?.unmount());globalThis.fetch=originalFetch;globalThis.window=originalWindow}
 })
+
+const savedProducts=products.map((product,index)=>({...product,...(index===0?{catalog:{items:[{supplierArticle:'001AB',price:'4.20',priceUnit:100,quantity:20,currency:'EUR',unit:'ST',imageUrl:'https://eshop.wuerth.de/product.jpg',imageStatus:'available'}],importedAt:'2026-11-09T12:00:00Z',source:'unverified_browser_return'}}:{})}))
+test('persistent import survives remount with date, safe lazy images and broken/missing fallbacks',async()=>{
+ const previous=globalThis.fetch;let view
+ globalThis.fetch=async(_url,options)=>({ok:true,json:async()=>JSON.parse(options.body).action==='products'?{products:savedProducts}:{configured:true}})
+ try{
+  for(let mount=0;mount<2;mount++){
+   await act(async()=>{view=Renderer.create(React.createElement(Catalog,{plannerSession:'test-login'}))})
+   assert.match(text(view.root),/4.20 EUR je 100 ST/)
+   assert.match(text(view.root),/Importiert:/)
+   assert.match(text(view.root),/Unverifizierter Katalogstand/)
+   assert.match(text(view.root),/1\/2 Preise · 1\/2 Bilder/)
+   assert.match(text(view.root),/Noch kein OCI-Bild/)
+   const img=view.root.findByType('img')
+   assert.equal(img.props.loading,'lazy');assert.equal(img.props.referrerPolicy,'no-referrer')
+   await act(async()=>img.props.onError())
+   assert.equal(view.root.findAllByType('img').length,0)
+   assert.match(text(view.root),/Bild konnte nicht geladen werden/)
+   await act(async()=>view.unmount())
+  }
+ }finally{await act(async()=>view?.unmount());globalThis.fetch=previous}
+})
+test('blocked image sources never render an img',async()=>{
+ const previous=globalThis.fetch;let view
+ const blocked=[{...products[0],catalog:{items:[{supplierArticle:'001AB',imageUrl:'https://evil.example/a.jpg',imageStatus:'available'}]}}]
+ globalThis.fetch=async(_url,options)=>({ok:true,json:async()=>JSON.parse(options.body).action==='products'?{products:blocked}:{configured:true}})
+ try{
+  await act(async()=>{view=Renderer.create(React.createElement(Catalog,{plannerSession:'test-login'}))})
+  assert.equal(view.root.findAllByType('img').length,0)
+  assert.match(text(view.root),/Bildquelle nicht unterstützt/)
+ }finally{await act(async()=>view?.unmount());globalThis.fetch=previous}
+})
+test('callback URL automatically retrieves result and reloads persistent products',async()=>{
+ const previous=globalThis.fetch,previousLocation=globalThis.location;let view;const calls=[];let imported=false
+ globalThis.location={search:'?oci_session=a1111111-1111-4111-8111-111111111111'}
+ globalThis.fetch=async(_url,options)=>{
+  const request=JSON.parse(options.body);calls.push(request.action)
+  if(request.action==='result'){imported=true;return {ok:true,json:async()=>({status:'returned',cart:{items:savedProducts[0].catalog.items}})}}
+  return {ok:true,json:async()=>request.action==='products'?{products:imported?savedProducts:products}:{configured:true}}
+ }
+ try{
+  await act(async()=>{view=Renderer.create(React.createElement(Catalog,{plannerSession:'test-login'}))})
+  assert.equal(calls.filter(action=>action==='result').length,1)
+  assert.equal(calls.filter(action=>action==='products').length,2)
+  assert.match(text(view.root),/Importiert:/)
+  assert.match(text(view.root),/4.20 EUR je 100 ST/)
+ }finally{await act(async()=>view?.unmount());globalThis.fetch=previous;globalThis.location=previousLocation}
+})
+test('late callback results cannot leak into a different planner session',async()=>{
+ const previous=globalThis.fetch,previousLocation=globalThis.location;let view,resolveResult;const resultRequests=[]
+ globalThis.location={search:'?oci_session=a1111111-1111-4111-8111-111111111111'}
+ globalThis.fetch=async(_url,options)=>{
+  const request=JSON.parse(options.body)
+  if(request.action==='result'){resultRequests.push(request);return await new Promise(resolve=>{resolveResult=resolve})}
+  return {ok:true,json:async()=>request.action==='products'?{products}:{configured:true}}
+ }
+ try{
+  await act(async()=>{view=Renderer.create(React.createElement(Catalog,{plannerSession:'old-login'}))})
+  await act(async()=>view.update(React.createElement(Catalog,{plannerSession:'new-login'})))
+  await act(async()=>resolveResult({ok:true,json:async()=>({status:'returned',cart:{items:savedProducts[0].catalog.items}})}))
+  assert.equal(resultRequests.length,1)
+  assert.doesNotMatch(text(view.root),/4.20 EUR|Deine Katalogauswahl/)
+  assert.equal(view.root.findAllByType('img').length,0)
+ }finally{await act(async()=>view?.unmount());globalThis.fetch=previous;globalThis.location=previousLocation}
+})
+test('returning focus while pending retrieves the result without a polling loop',async()=>{
+ const previous=globalThis.fetch,previousLocation=globalThis.location,previousWindow=globalThis.window;let view;let resultCalls=0;const events=new Map()
+ globalThis.location={search:'?oci_session=a1111111-1111-4111-8111-111111111111'}
+ globalThis.window={addEventListener:(name,callback)=>events.set(name,callback),removeEventListener:(name)=>events.delete(name)}
+ globalThis.fetch=async(_url,options)=>{
+  const action=JSON.parse(options.body).action
+  if(action==='result'){resultCalls++;return {ok:true,json:async()=>resultCalls===1?{status:'pending'}:{status:'returned',cart:{items:savedProducts[0].catalog.items}}}}
+  return {ok:true,json:async()=>action==='products'?{products}:{configured:true}}
+ }
+ try{
+  await act(async()=>{view=Renderer.create(React.createElement(Catalog,{plannerSession:'login'}))})
+  assert.equal(resultCalls,1);assert.ok(events.has('focus'))
+  await act(async()=>events.get('focus')())
+  assert.equal(resultCalls,2);assert.equal(events.has('focus'),false)
+  assert.match(text(view.root),/4.20 EUR je 100 ST/)
+ }finally{await act(async()=>view?.unmount());globalThis.fetch=previous;globalThis.location=previousLocation;globalThis.window=previousWindow}
+})

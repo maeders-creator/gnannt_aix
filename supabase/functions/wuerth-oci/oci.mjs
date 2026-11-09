@@ -2,7 +2,7 @@
 export const WUERTH_OCI_ENDPOINT = 'https://eshop.wuerth.de/is-bin/INTERSHOP.enfinity/WFS/1401-B1-Site/de_DE/-/EUR/OCICatalogService-Inbound'
 export const MAX_BODY_BYTES = 262144
 const MAX_ITEMS = 200
-const LIMITS = { DESCRIPTION: 40, MATNR: 40, VENDORMAT: 40, QUANTITY: 15, UNIT: 3, PRICE: 15, CURRENCY: 5, PRICEUNIT: 5 }
+const LIMITS = { DESCRIPTION: 40, MATNR: 40, VENDORMAT: 40, QUANTITY: 15, UNIT: 3, PRICE: 15, CURRENCY: 5, PRICEUNIT: 5, ATTACHMENT: 2048, ATTACHMENT_PURPOSE: 1, IMAGE: 2048, IMAGE_URL: 2048, EXT_IMAGE_URL: 2048 }
 export class OciError extends Error {
   constructor(code) { super(code); this.name = 'OciError'; this.code = code }
 }
@@ -14,6 +14,24 @@ const clean = (value, max) => {
 const decimal = (value, positive = false) => {
   if (!/^\d{1,11}(?:\.\d{1,3})?$/.test(value) || (positive && !/[1-9]/.test(value))) fail('INVALID_NUMBER')
   return value
+}
+
+// Supplier-hosted raster assets only. Never retain arbitrary URLs, signed links,
+// credentials, documents or active SVG/HTML. No server-side URL fetching occurs.
+const IMAGE_HOSTS = new Set(['eshop.wuerth.de', 'media.wuerth.com', 'www.wuerth.de', 'media.witglobal.net'])
+export function safeProductImageUrl(value) {
+  if (typeof value !== 'string' || value.length > 2048 || /[\x00-\x20\x7f\\]/.test(value)) return null
+  try {
+    const url = new URL(value)
+    if (url.protocol !== 'https:' || url.username || url.password || url.port || url.search || url.hash || !IMAGE_HOSTS.has(url.hostname)) return null
+    if (!/\.(?:jpe?g|png|webp|gif|avif)$/i.test(url.pathname) || /%(?:2f|5c|00)/i.test(url.pathname)) return null
+    return url.href
+  } catch { return null }
+}
+function productImage(row) {
+  const candidates = [row.IMAGE_URL, row.IMAGE, row.EXT_IMAGE_URL, ...(row.ATTACHMENT_PURPOSE === 'C' ? [] : [row.ATTACHMENT])].filter(Boolean)
+  const imageUrl = candidates.map(safeProductImageUrl).find(Boolean) || null
+  return { imageUrl, imageStatus: imageUrl ? 'available' : candidates.length ? 'unsupported' : 'not_supplied' }
 }
 
 // Intentionally limited to simple merchandise lines. Keep decimal values as
@@ -41,7 +59,7 @@ export function parseOciCart(body) {
     const index = Number(rawIndex)
     if (!Number.isSafeInteger(index) || index > MAX_ITEMS) fail('TOO_MANY_ITEMS')
     if (['ITEM_TYPE', 'PARENT_ID', 'SERVICE'].includes(field) && value.trim()) fail('UNSUPPORTED_ITEM_TYPE')
-    if (!(field in LIMITS)) continue // Do not import URLs, HTML, attachments or extension fields.
+    if (!(field in LIMITS)) continue // Ignore unknown extensions; image candidates are separately allowlisted.
     if (!rows.has(index)) rows.set(index, Object.create(null))
     rows.get(index)[field] = clean(value, LIMITS[field])
   }
@@ -58,7 +76,7 @@ export function parseOciCart(body) {
     const priceUnit = r.PRICEUNIT || '1'
     if (!/^[1-9]\d{0,4}$/.test(priceUnit)) fail('INVALID_PRICE_UNIT')
     return { index, description: r.DESCRIPTION || r.MATNR, supplierArticle: r.VENDORMAT || null,
-      materialNumber: r.MATNR || null, quantity, unit: r.UNIT, price, priceUnit, currency }
+      materialNumber: r.MATNR || null, quantity, unit: r.UNIT, price, priceUnit, currency, ...productImage(r) }
   })
   return { supplier: 'wuerth-de', status: 'catalog_preview', priceSource: 'unverified_browser_return',
     ordered: false, items }

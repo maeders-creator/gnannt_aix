@@ -93,3 +93,26 @@ test('malformed return does not consume session; no supplier calls occur',async(
   assert.equal(row.status,'pending')
   assert.equal((await receiveCatalogReturn(request)).ordered,false)
 })
+
+test('imports only allowlisted supplier raster image URLs and reports absence accurately',()=>{
+ const image='https://media.wuerth.com/source/eshop/product.jpg'
+ for(const field of ['ATTACHMENT','IMAGE','IMAGE_URL','EXT_IMAGE_URL']){
+  const item=parseOciCart(body({[field]:image})).items[0]
+  assert.equal(item.imageUrl,image);assert.equal(item.imageStatus,'available')
+ }
+ assert.equal(parseOciCart(body()).items[0].imageStatus,'not_supplied')
+ assert.equal(parseOciCart(body({ATTACHMENT:image,ATTACHMENT_PURPOSE:'C'})).items[0].imageUrl,null)
+})
+test('unsupported image fields never break valid prices or retain unsafe URLs',()=>{
+ for(const image of ['http://media.wuerth.com/product.jpg','https://evil.invalid/p.jpg','https://media.wuerth.com.evil.invalid/p.jpg','https://user:pass@media.wuerth.com/p.jpg','https://media.wuerth.com:444/p.jpg','https://media.wuerth.com/p.jpg?token=secret','https://media.wuerth.com/p.svg','https://media.wuerth.com/p.pdf','javascript:alert(1)','data:image/png;base64,abc','https://127.0.0.1/p.jpg','https://media.wuerth.com/a%2fb.jpg']){
+  const item=parseOciCart(body({ATTACHMENT:image})).items[0]
+  assert.equal(item.imageUrl,null);assert.equal(item.imageStatus,'unsupported');assert.equal(item.price,'12.34')
+  assert.equal(JSON.stringify(item).includes(image),false)
+ }
+})
+test('safe image fallback does not retain unsupported attachment or metadata',()=>{
+ const cart=parseOciCart(body({ATTACHMENT:'https://evil.invalid/f.pdf',IMAGE_URL:'https://media.wuerth.com/product.png',ATTACHMENT_TITLE:'untrusted attachment title'}))
+ assert.equal(cart.items[0].imageUrl,'https://media.wuerth.com/product.png')
+ assert.equal(JSON.stringify(cart).includes('evil.invalid'),false)
+ assert.equal(JSON.stringify(cart).includes('untrusted attachment'),false)
+})
