@@ -1,5 +1,6 @@
 import TrainingVideos from './TrainingVideos'
 import PrivateDocumentButton,{isPrivateDocument} from './PrivateDocumentButton'
+import PrivateCacheMaintenance from './PrivateCacheMaintenance'
 import {useCallback,useEffect,useRef,useState} from 'react'
 import {Plus,X,Search} from 'lucide-react'
 import {hubCategories,hubCategory,hubEntryCategories,hubDocumentSections,hubDocumentSystems,groupedHubDocuments} from './hubCategories.mjs'
@@ -33,6 +34,7 @@ export default function KnowledgeBaseLive({supabase}) {
   }
   return <section className="knowledge-live" aria-label="Gnannt Hub">
     <div className="hub-quickbar"><div><h2>GNANNT HUB</h2><p>Erst den Bereich wählen. Direkt finden oder hinzufügen.</p></div><button className="btn primary" onClick={()=>openComposer()}><Plus size={18}/> Hinzufügen</button></div>
+    <PrivateCacheMaintenance purge={supabase.purgePublicCache}/>
     <div className="hub-category-picker" role="group" aria-label="Hub-Kategorien"><button className={'hub-category-choice hub-category-all'+(category==='ALLE'?' selected':'')} aria-pressed={category==='ALLE'} onClick={()=>selectCategory('ALLE')}><span>Alle Bereiche</span><strong>{docs.length}</strong></button>{categories.map(c=><button className={'hub-category-choice'+(category===c.title?' selected':'')} key={c.title} aria-pressed={category===c.title} onClick={()=>selectCategory(c.title)}><span><span aria-hidden="true">{c.icon}</span> {c.title}</span><strong>{docs.filter(doc=>hubCategory(doc)===c.title).length}</strong></button>)}</div>
     {category==='Dokumente & Videos'&&<div className="hub-document-filters"><label>Dokumentbereich<select className="input" value={section} onChange={e=>{setSection(e.target.value);setSystem('ALLE')}}><option value="ALLE">Alle Dokumentbereiche</option>{sections.map(name=><option key={name}>{name}</option>)}</select></label>{systems.length>0&&<label>System / Unterkategorie<select className="input" value={system} onChange={e=>setSystem(e.target.value)}><option value="ALLE">Alle Systeme</option>{systems.map(name=><option key={name}>{name}</option>)}</select></label>}</div>}
     <div className="hub-searchbar"><label><Search size={18}/><span className="sr-only">Hub durchsuchen</span><input className="input" type="search" value={search} onChange={e=>setSearch(e.target.value)} placeholder="Titel, Datei oder Link suchen…"/></label><span>{category==='ALLE'?'Alle Kategorien':category} · {groups.reduce((n,g)=>n+g.documents.length,0)} Einträge</span></div>
