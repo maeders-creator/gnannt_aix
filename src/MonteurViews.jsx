@@ -1,5 +1,7 @@
+import TrainingVideos from './TrainingVideos'
+import PrivateDocumentButton,{isPrivateDocument,ProjectDocument} from './PrivateDocumentButton'
 import {hubEntryCategories,groupedHubDocuments} from './hubCategories.mjs'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { ArrowLeft, ChevronLeft, ChevronRight, ExternalLink, Pencil } from 'lucide-react'
 import { berlinDay, compareProjectUrgency, projectHasEmployee, projectTeamNames } from './projectTodos'
 
@@ -57,7 +59,7 @@ function ProjectEditor({ project, api, online, onSaved, onRefreshed, onCancel })
 export function ProjectDetail({ project, api, online, onSaved, onClose }) {
   const [editing, setEditing] = useState(false)
   const [saved, setSaved] = useState(false)
-  const attachment = safeUrl(project.attachment_url)
+  const attachment = project.attachment_url
   useEffect(() => { window.scrollTo(0, 0) }, [])
   return <section className="monteur-detail" aria-label="Auftragsdetails">
     {editing ? <ProjectEditor project={project} api={api} online={online} onRefreshed={onSaved} onCancel={() => setEditing(false)} onSaved={updated => { onSaved(updated); setEditing(false); setSaved(true); window.scrollTo(0, 0) }}/> : <>
@@ -67,12 +69,13 @@ export function ProjectDetail({ project, api, online, onSaved, onClose }) {
       <div className="monteur-review"><dl><dt>Termin</dt><dd>{dayLabel(project.termin)}{project.uhrzeit && ` · ${project.uhrzeit.slice(0, 5)} Uhr`}</dd><dt>Telefon</dt><dd>{project.telefon ? <a href={`tel:${project.telefon.replace(/[^+\d]/g, '')}`}>{project.telefon}</a> : 'Noch nicht erfasst'}</dd><dt>E-Mail</dt><dd>{project.email_kunde ? <a href={`mailto:${project.email_kunde}`}>{project.email_kunde}</a> : 'Noch nicht erfasst'}</dd><dt>Verantwortlich</dt><dd>{project.lead || 'Noch offen'}</dd><dt>Team</dt><dd>{project.mitarbeiter || 'Noch offen'}</dd><dt>Status</dt><dd>{STATUSES[project.status] || project.status || 'Offen'}</dd><dt>Priorität</dt><dd>{project.prioritaet || 'Noch offen'}</dd><dt>Eingestellt von</dt><dd>{project.created_by_name || 'Bestand · nicht erfasst'}</dd></dl></div>
       <button className="monteur-primary monteur-edit-button" disabled={!online} onClick={() => { setSaved(false); setEditing(true) }}><Pencil size={18}/> Bearbeiten</button>
       {project.details_updated_at && <p className="monteur-subtitle">Daten geändert von {project.details_updated_by || 'Büro / Planer'} · {new Date(project.details_updated_at).toLocaleString('de-DE', { timeZone: 'Europe/Berlin', dateStyle: 'short', timeStyle: 'short' })}</p>}
-      <h2>Notizen & Kommentare</h2><p className="monteur-note">{project.notiz || 'Noch keine Notizen.'}</p>{attachment && <a href={attachment} target="_blank" rel="noreferrer">Projekt-PDF öffnen</a>}
+      <h2>Notizen & Kommentare</h2><p className="monteur-note">{project.notiz || 'Noch keine Notizen.'}</p>{attachment && <ProjectDocument project={project} download={id=>api('project-download',{id})}/>}
     </>}
   </section>
 }
 
 export function MonteurHub({ api }) {
+  const loadVideos=useCallback(()=>api('training-videos'),[api])
   const [docs, setDocs] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -89,7 +92,8 @@ export function MonteurHub({ api }) {
   const groups=groupedHubDocuments(docs,category==='Alle'?'ALLE':category,search)
   return <section className="monteur-panel"><h1>Hub</h1><p className="monteur-subtitle">Anleitungen, Unterweisungen, Dokumente und Videos für unterwegs.</p><div className="monteur-fields"><label>Hub durchsuchen<input type="search" value={search} onChange={e => setSearch(e.target.value)} placeholder="Titel oder Dokument suchen"/></label><label>Bereich<select value={category} onChange={e => setCategory(e.target.value)}><option>Alle</option>{categories.map(name => <option key={name}>{name}</option>)}</select></label></div>
     {loading && <p role="status">Hub wird geladen…</p>}{error && <div className="monteur-error" role="alert">{error}<button className="monteur-secondary" onClick={() => setRetry(n => n + 1)}>Erneut laden</button></div>}
-    {!loading && !error && <div className="monteur-doc-list">{groups.map(group=><section className="monteur-hub-group" key={group.title}><h2>{group.title.replace('Dokumente & Videos / ','')}</h2>{group.documents.map(doc => { const url = safeUrl(doc.url); return <article key={doc.id}><span>{doc.category || 'Dokumente'}</span><h2>{doc.title}</h2>{doc.file_name && <p>{doc.file_name}</p>}{url ? <a className="monteur-secondary" href={url} target="_blank" rel="noreferrer">Öffnen <ExternalLink size={16}/></a> : <p>Kein gültiger Link hinterlegt. Bitte im Büro ergänzen lassen.</p>}</article> })}</section>)}{!groups.length && <p>{docs.length ? 'Keine passenden Dokumente.' : 'Im Hub sind noch keine Dokumente hinterlegt.'}</p>}</div>}
+    {!loading && !error && <div className="monteur-doc-list">{groups.map(group=><section className="monteur-hub-group" key={group.title}><h2>{group.title.replace('Dokumente & Videos / ','')}</h2>{group.documents.map(doc => { const url = safeUrl(doc.url); return <article key={doc.id}><span>{doc.category || 'Dokumente'}</span><h2>{doc.title}</h2>{doc.file_name && <p>{doc.file_name}</p>}{isPrivateDocument(doc)?<PrivateDocumentButton doc={doc} download={id=>api('hub-download',{id})} className="monteur-secondary"/>:url ? <a className="monteur-secondary" href={url} target="_blank" rel="noreferrer">Öffnen <ExternalLink size={16}/></a> : <p>Kein gültiger Link hinterlegt. Bitte im Büro ergänzen lassen.</p>}</article> })}</section>)}{!groups.length && <p>{docs.length ? 'Keine passenden Dokumente.' : 'Im Hub sind noch keine Dokumente hinterlegt.'}</p>}</div>}
+    <TrainingVideos loadVideos={loadVideos}/>
   </section>
 }
 

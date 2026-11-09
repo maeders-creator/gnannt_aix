@@ -1,9 +1,10 @@
+import {ProjectDocument} from './PrivateDocumentButton'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Check, ChevronDown, MessageSquare, Plus, RotateCcw, Search } from 'lucide-react'
 import { berlinDay, projectTodoList } from './projectTodos'
 import './projectTodos.css'
 
-function TodoRow({ item, today, author, onComment, onComplete, onReopen, onEdit, disabled }) {
+function TodoRow({ item, today, author, onComment, onComplete, onReopen, onEdit, downloadProject, disabled }) {
   const [expanded, setExpanded] = useState(false)
   const [draft, setDraft] = useState('')
   const [busy, setBusy] = useState(false)
@@ -38,7 +39,7 @@ function TodoRow({ item, today, author, onComment, onComplete, onReopen, onEdit,
     </div>
     {error && <p className="todo-error" role="alert">{error}</p>}
     {expanded && <div className="todo-detail">
-      <div className="todo-history"><strong>Notizen & Kommentare</strong><p>{item.notiz || 'Noch keine Kommentare. Ergänze den nächsten Schritt oder eine Rückmeldung zur Montage.'}</p>{item.attachment_url && <a href={item.attachment_url} target="_blank" rel="noreferrer">Projekt-PDF öffnen</a>}</div>
+      <div className="todo-history"><strong>Notizen & Kommentare</strong><p>{item.notiz || 'Noch keine Kommentare. Ergänze den nächsten Schritt oder eine Rückmeldung zur Montage.'}</p>{item.attachment_url && <ProjectDocument project={item} download={downloadProject}/>}</div>
       <form onSubmit={e => { e.preventDefault(); act(async () => { await onComment(item.id, draft, author); setDraft('') }) }}>
         <label htmlFor={`todo-comment-${item.id}`}>Kommentar hinzufügen{author ? ` · ${author}` : ''}</label>
         <textarea id={`todo-comment-${item.id}`} value={draft} disabled={busy} onChange={e => setDraft(e.target.value)} maxLength={2000} placeholder="Was ist zu tun? Was fehlt? Was wurde erledigt?" rows={3}/>
@@ -49,7 +50,7 @@ function TodoRow({ item, today, author, onComment, onComplete, onReopen, onEdit,
   </article>
 }
 
-export default function ProjectTodos({ items, employees, online, onComment, onComplete, onReopen, onUndo, onEdit, onAdd, fixedAuthor, personalName = fixedAuthor }) {
+export default function ProjectTodos({ items, employees, online, onComment, onComplete, onReopen, onUndo, onEdit, onAdd, downloadProject, fixedAuthor, personalName = fixedAuthor }) {
   const [filter, setFilter] = useState('open')
   const [team, setTeam] = useState(() => personalName || 'ALLE')
   const [search, setSearch] = useState('')
@@ -86,7 +87,7 @@ export default function ProjectTodos({ items, employees, online, onComment, onCo
     {!online && <p className="todo-error" role="status">Keine Verbindung. Zum Kommentieren und Abhaken bitte wieder online gehen.</p>}
     {lastDone && <div className="todo-success" role="status"><span><Check size={16}/> {lastDone.projekt} erledigt</span><button disabled={undoing || !online} onClick={async () => { setUndoing(true); setUndoError(''); try { await onUndo(lastDone); setLastDone(null) } catch(e) { setUndoError(e.message) } finally { setUndoing(false) } }}><RotateCcw size={15}/> Rückgängig</button></div>}
     {undoError && <p className="todo-error" role="alert">{undoError}</p>}
-    <div className="todo-list">{shown.map(item => <TodoRow key={item.id} item={item} today={today} author={author} disabled={!online} onEdit={onEdit} onComment={onComment} onReopen={async project => { await onReopen(project); setLastDone(null); setUndoError('') }} onComplete={async project => { await onComplete(project); setLastDone(project); setUndoError('') }}/>)}</div>
+    <div className="todo-list">{shown.map(item => <TodoRow downloadProject={downloadProject} key={item.id} item={item} today={today} author={author} disabled={!online} onEdit={onEdit} onComment={onComment} onReopen={async project => { await onReopen(project); setLastDone(null); setUndoError('') }} onComplete={async project => { await onComplete(project); setLastDone(project); setUndoError('') }}/>)}</div>
     {!shown.length && <div className="todo-empty">{filter === 'open' && !search && team === 'ALLE' ? 'Alles erledigt. Neue Projekte erscheinen hier automatisch.' : 'Keine Projekte für diese Auswahl.'}{(filter !== 'open' || search || team !== 'ALLE') && <button className="btn outline small" onClick={showAll}>Alle offenen Projekte</button>}</div>}
   </section>
 }

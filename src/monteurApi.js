@@ -20,6 +20,7 @@ export function createMonteurApi(token) {
         headers: { 'Content-Type': 'application/json', apikey: key, 'x-monteur-token': token },
         body: JSON.stringify({ ...data, action })
       })
+      if (['hub-download','project-download'].includes(action) && response.ok) return response.blob()
       const result = await response.json()
       if (!response.ok) { const error = new Error(result.error || 'Verbindung fehlgeschlagen. Bitte erneut versuchen.'); error.status = response.status; throw error }
       return result

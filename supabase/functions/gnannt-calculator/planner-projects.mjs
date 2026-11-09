@@ -1,6 +1,14 @@
+import {UPLOAD_BUCKET,UPLOAD_URL,storagePath} from '../_shared/private-knowledge.mjs'
 const columns = new Set(['projekt','kunde','adresse','ort','telefon','email_kunde','gewerk','lead','mitarbeiter','status','termin','uhrzeit','prioritaet','notiz','attachment_name','attachment_url','push_enabled'])
 export async function plannerProjects(db, input) {
   const {op,filters=[],values,selection='*',single=false,maybeSingle=false}=input
+  if(op==='upload-url'){
+    if(typeof input.path!=='string'||!/^projects\/[1-9][0-9]*_[A-Za-z0-9_.-]+\.pdf$/i.test(input.path)||input.path.length>350)throw Error('PDF-Dateiname prüfen.')
+    const id=Number(input.path.split('/')[1].split('_')[0]);if(!Number.isSafeInteger(id))throw Error('Projekt-ID prüfen.')
+    const project=await db.from('projects').select('id').eq('id',id).maybeSingle();if(project.error||!project.data)throw Error('Projekt nicht gefunden.')
+    const result=await db.storage.from(UPLOAD_BUCKET).createSignedUploadUrl(input.path);if(result.error)return result
+    return {data:{signedUrl:result.data.signedUrl,publicUrl:UPLOAD_URL+input.path},error:null}
+  }
   // Called only after the existing planner session signature and expiry check.
   // The backend-only RPC fixes the account name and appends atomically.
   if (op === 'comment') {
@@ -19,6 +27,7 @@ export async function plannerProjects(db, input) {
       if(!columns.has(key))throw Error('Projektfeld nicht freigegeben.')
       if(key==='push_enabled'){if(typeof value!=='boolean')throw Error('Ungültiger Wert.')}else if(value!==null&&(typeof value!=='string'||value.length>(key==='notiz'?16000:2000)))throw Error('Ungültiger Projektwert.')
     }
+    if(values.attachment_url){const path=storagePath(values.attachment_url,'projects');const id=filters.find(f=>f.column==='id'&&f.method==='eq')?.value;if(!path||!id||!path.startsWith('projects/'+id+'_'))throw Error('PDF zuerst für diesen Auftrag hochladen.')}
     if(op==='insert'&&!String(values.projekt||'').trim())throw Error('Projektname fehlt.')
     query=op==='insert'?query.insert({...values,created_by_name:'Planer'}):query.update({...values,details_updated_by:'Planer'})
   }
@@ -29,4 +38,3 @@ export async function plannerProjects(db, input) {
   if(single)query=query.single();else if(maybeSingle)query=query.maybeSingle()
   return await query
 }
-

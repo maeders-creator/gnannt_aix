@@ -1,3 +1,5 @@
+import trainingVideos from '../_shared/training-videos.json' with {type:'json'}
+import {downloadPortalDocument} from '../_shared/private-knowledge.mjs'
 const STAFF = ['Jonathan', 'Ruben', 'Gerold', 'Samuel', 'Edmund', 'Waldemar']
 const STATUSES = ['AUFMASS', 'KONSTRUKTION', 'PRODUKTION', 'MONTAGE', 'IN_ARBEIT', 'ERLEDIGT']
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
@@ -83,6 +85,9 @@ export function createHandler(db) {
         if (result.error) throw new Error('list')
         return reply({ actor, projects: result.data })
       }
+      if (input.action === 'training-videos') return reply({data:trainingVideos,error:null})
+      if (input.action === 'project-download') return downloadPortalDocument(db,'projects',input.id,headers)
+      if (input.action === 'hub-download') return downloadPortalDocument(db,'knowledge',input.id,headers)
       if (input.action === 'hub') {
         const result = await db.from('knowledge_docs').select('id,title,category,type,file_name,url,created_at').order('created_at', { ascending: false }).limit(1000)
         if (result.error) throw new Error('hub')

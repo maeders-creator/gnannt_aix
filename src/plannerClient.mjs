@@ -1,5 +1,21 @@
 export function createPlannerClient(session, endpoint = 'https://xhpwmebwvjpdhsjeyrug.supabase.co/functions/v1/gnannt-calculator') {
+  async function fileRequest(body) {
+    if(!session)throw new Error('Bitte im Portal anmelden.')
+    const response=await fetch(endpoint,{method:'POST',headers:{'Content-Type':'application/json','x-planer-session':session},body:JSON.stringify({action:'planner-projects',...body})})
+    if(body.op==='download'&&response.ok)return response.blob()
+    const result=await response.json()
+    if(!response.ok||result.error)throw new Error(result.error?.message||result.error||'Datei konnte nicht geladen werden.')
+    return result
+  }
   return {
+    downloadProject(id){return fileRequest({op:'download',id})},
+    async uploadProject(path,file){
+      const result=await fileRequest({op:'upload-url',path})
+      if(!result.data?.signedUrl||!result.data?.publicUrl)throw new Error('Upload konnte nicht vorbereitet werden.')
+      const response=await fetch(result.data.signedUrl,{method:'PUT',headers:{'Content-Type':file.type||'application/pdf'},body:file})
+      if(!response.ok)throw new Error('Datei konnte nicht hochgeladen werden.')
+      return result.data.publicUrl
+    },
     async appendComment(id, text) {
       const comment = typeof text === 'string' ? text.trim() : ''
       if (!Number.isSafeInteger(id) || id <= 0) throw new Error('Bitte einen gültigen Auftrag öffnen.')

@@ -1,5 +1,6 @@
 import WuerthCatalog from './WuerthCatalog.jsx'
 import {openAufmassWindow, returnToPortal} from './aufmassWindow.mjs'
+import {ProjectDocument} from './PrivateDocumentButton'
 import AufmassApp from './AufmassApp.jsx'
 import {createKnowledgeClient} from './knowledgeClient.mjs'
 import KnowledgeBaseLive from './KnowledgeBase'
@@ -53,7 +54,6 @@ function cacheUpdate(id, patch) {
 
 
 const PUBLIC_SCREEN_HASH = '#screen'
-const STORAGE_BUCKET = 'uploads'
 const STATUS_ORDER = ['AUFMASS', 'KONSTRUKTION', 'PRODUKTION', 'MONTAGE']
 const ALL_STATUS = ['AUFMASS', 'KONSTRUKTION', 'PRODUKTION', 'MONTAGE', 'ERLEDIGT']
 const EMPLOYEES = ['Ruben', 'Edmund', 'Gerold', 'Samuel', 'Jonathan', 'Waldemar']
@@ -337,7 +337,7 @@ function Modal({ open, close, children }) {
   return <div className="modal-bg"><div className="modal"><button className="close" onClick={close}><X size={18}/></button>{children}</div></div>
 }
 
-function Form({ form, setForm, save, saving, upload, uploading, pendingFile, setPendingFile }) {
+function Form({ form, setForm, save, saving, upload, uploading, pendingFile, setPendingFile, downloadProject }) {
   const set = (k, v) => setForm({ ...form, [k]: v })
   return (
     <div>
@@ -366,7 +366,7 @@ function Form({ form, setForm, save, saving, upload, uploading, pendingFile, set
           else setPendingFile(file)
         }} />
         {pendingFile && !form.id && <p className="tiny">PDF vorgemerkt: {pendingFile.name}. Wird nach dem Speichern hochgeladen.</p>}
-        {form.attachment_url && <a className="btn small outline" href={form.attachment_url} target="_blank">PDF öffnen</a>}
+        {form.attachment_url && <ProjectDocument project={form} download={downloadProject} className="btn small outline"/>}
         {uploading && <p>Datei wird hochgeladen...</p>}
       </div>
       <div className="right"><button className="btn primary" onClick={save} disabled={saving}>{saving ? 'Speichert...' : 'Speichern'}</button></div>
@@ -397,7 +397,7 @@ function Calendar({ items, edit }) {
   )
 }
 
-function Uploads({ items, edit }) { return <div className="panel"><h3><Upload/> PDF Uploads</h3>{items.map(x => <div className="row bigrow" key={x.id}><div><strong>{x.projekt}</strong><p>{x.attachment_name || 'Noch kein PDF'}</p></div><div className="row-actions">{x.attachment_url && <a className="btn small outline" href={x.attachment_url} target="_blank">Öffnen</a>}<button className="btn small outline" onClick={() => edit(x)}>Bearbeiten</button></div></div>)}</div> }
+function Uploads({ items, edit, downloadProject }) { return <div className="panel"><h3><Upload/> PDF Uploads</h3>{items.map(x => <div className="row bigrow" key={x.id}><div><strong>{x.projekt}</strong><p>{x.attachment_name || 'Noch kein PDF'}</p></div><div className="row-actions">{x.attachment_url && <ProjectDocument project={x} download={downloadProject} className="btn small outline"/>}<button className="btn small outline" onClick={() => edit(x)}>Bearbeiten</button></div></div>)}</div> }
 function Team({ user, items }) { const ruben = items.filter(x => x.status === 'MONTAGE' || x.lead === 'Ruben'); return <div className="stack"><div className="two"><div className="panel"><h3><Users/> Mitarbeiter Login</h3><p>Aktuell: <strong>{user?.email || '-'}</strong></p><p>Rolle: <strong>{user?.role || 'user'}</strong></p></div><div className="panel"><h3><FolderOpen/> Ruben App</h3><p>Relevante Montageprojekte: <strong>{ruben.length}</strong></p></div></div><div className="grid">{ruben.map(x => <Card key={x.id} item={x} compact />)}</div></div> }
 
 
@@ -433,6 +433,7 @@ export default function App({aufmassWindow=false}) {
   const [now, setNow] = useState(new Date())
 
   const knowledgeClient=useMemo(()=>plannerSession?createKnowledgeClient(plannerSession):supabase,[plannerSession])
+  const downloadProject = id => createPlannerClient(plannerSession).downloadProject(id)
   const projectClient = useMemo(() => plannerSession ? createPlannerClient(plannerSession) : supabase, [plannerSession])
   useEffect(() => { if (plannerSession) setUser({ email: 'Planer', role: 'planer' }) }, [plannerSession])
   const isScreen = window.location.hash === PUBLIC_SCREEN_HASH
@@ -641,21 +642,18 @@ export default function App({aufmassWindow=false}) {
     const safeName = file.name.replace(/[^a-zA-Z0-9_.-]/g, '_')
     const path = `projects/${projectId}_${crypto.randomUUID()}_${safeName}`
 
-    const { error: upErr } = await supabase.storage
-      .from(STORAGE_BUCKET)
-      .upload(path, file, { upsert: false, contentType: file.type || 'application/pdf' })
-
-    if (upErr) {
-      setError('PDF Upload fehlgeschlagen: ' + upErr.message)
+    let publicUrl
+    try {
+      publicUrl = await createPlannerClient(plannerSession).uploadProject(path, file)
+    } catch (error) {
+      setError('PDF Upload fehlgeschlagen: ' + error.message)
       setUploading(false)
       return false
     }
 
-    const { data } = supabase.storage.from(STORAGE_BUCKET).getPublicUrl(path)
-
     const { error: dbErr } = await projectClient
       .from('projects')
-      .update({ attachment_name: file.name, attachment_url: data.publicUrl })
+      .update({ attachment_name: file.name, attachment_url: publicUrl })
       .eq('id', projectId)
 
     if (dbErr) {
@@ -664,7 +662,7 @@ export default function App({aufmassWindow=false}) {
       return false
     }
 
-    setForm(p => ({ ...p, attachment_name: file.name, attachment_url: data.publicUrl }))
+    setForm(p => ({ ...p, attachment_name: file.name, attachment_url: publicUrl }))
     setPendingFile(null)
     await load()
     setUploading(false)
@@ -740,5 +738,5 @@ export default function App({aufmassWindow=false}) {
   ['ruben','Ruben'],
   ['team','Team'],
   ...(user?.role === 'planer' ? [['calculator','Fensterkalkulator']] : [])
-].map(([t,label]) => <button key={t} className={tab===t ? 'active' : ''} onClick={() => {if(t==='aufmass'&&openAufmassWindow({plannerSession}))return;if(t==='calculator'&&openCalculatorWindow({plannerSession}))return;setTab(t)}}>{label}</button>)}</nav><div hidden={tab !== 'aufmass'}>{aufmass}</div>{tab === 'wuerth' ? <WuerthCatalog plannerSession={plannerSession}/> : tab === 'aufmass' ? null : loading && !items.length ? <div className="panel center">Lade Projekte...</div> : tab === 'todos' ? <ProjectTodos fixedAuthor={plannerSession ? 'Planer' : undefined} personalName="" items={items} employees={EMPLOYEES} online={online} onComment={commentTodo} onComplete={finishTodo} onReopen={reopenTodo} onUndo={undoTodo} onEdit={edit} onAdd={() => { setForm(EMPTY); setPendingFile(null); setModal(true) }}/> : tab === 'planung' ? <div className="stack">{grouped.map(g => <div key={g.status} className="panel" onDragOver={e => e.preventDefault()} onDrop={() => dragged && updateStatus(dragged, g.status)}><div className="panel-head"><h3>{g.status}</h3><span className={badgeClass(g.status)}>{g.items.length}</span></div><p className="tiny">Drag & Drop zwischen Statusbereichen aktiv</p><div className="grid">{g.items.length ? g.items.map(x => <Card key={x.id} item={x} onEdit={edit} onStatus={updateStatus} draggable onDragStart={() => setDragged(x.id)} />) : <div className="empty">Keine offenen Projekte</div>}</div></div>)}{archived.length > 0 && <div className="panel"><h3>Archiv</h3><div className="grid">{archived.map(x => <Card key={x.id} item={x} onEdit={edit} onStatus={updateStatus}/>)}</div></div>}</div> : tab === 'calculator' ? <Calculator plannerSession={plannerSession}/> : tab === 'hub' ? <KnowledgeBaseLive supabase={knowledgeClient}/> : tab === 'dashboard' ? <Dashboard active={active} archived={archived}/> : tab === 'kalender' ? <Calendar items={active} edit={edit}/> : tab === 'uploads' ? <Uploads items={items} edit={edit}/> : <Team user={user} items={tab === 'ruben' ? items.filter(x => x.status === 'MONTAGE' || x.lead === 'Ruben') : items}/>}<Modal open={modal} close={() => setModal(false)}><Form form={form} setForm={setForm} save={save} saving={saving} upload={upload} uploading={uploading} pendingFile={pendingFile} setPendingFile={setPendingFile} /></Modal></div></div>
+].map(([t,label]) => <button key={t} className={tab===t ? 'active' : ''} onClick={() => {if(t==='aufmass'&&openAufmassWindow({plannerSession}))return;if(t==='calculator'&&openCalculatorWindow({plannerSession}))return;setTab(t)}}>{label}</button>)}</nav><div hidden={tab !== 'aufmass'}>{aufmass}</div>{tab === 'wuerth' ? <WuerthCatalog plannerSession={plannerSession}/> : tab === 'aufmass' ? null : loading && !items.length ? <div className="panel center">Lade Projekte...</div> : tab === 'todos' ? <ProjectTodos downloadProject={downloadProject} fixedAuthor={plannerSession ? 'Planer' : undefined} personalName="" items={items} employees={EMPLOYEES} online={online} onComment={commentTodo} onComplete={finishTodo} onReopen={reopenTodo} onUndo={undoTodo} onEdit={edit} onAdd={() => { setForm(EMPTY); setPendingFile(null); setModal(true) }}/> : tab === 'planung' ? <div className="stack">{grouped.map(g => <div key={g.status} className="panel" onDragOver={e => e.preventDefault()} onDrop={() => dragged && updateStatus(dragged, g.status)}><div className="panel-head"><h3>{g.status}</h3><span className={badgeClass(g.status)}>{g.items.length}</span></div><p className="tiny">Drag & Drop zwischen Statusbereichen aktiv</p><div className="grid">{g.items.length ? g.items.map(x => <Card key={x.id} item={x} onEdit={edit} onStatus={updateStatus} draggable onDragStart={() => setDragged(x.id)} />) : <div className="empty">Keine offenen Projekte</div>}</div></div>)}{archived.length > 0 && <div className="panel"><h3>Archiv</h3><div className="grid">{archived.map(x => <Card key={x.id} item={x} onEdit={edit} onStatus={updateStatus}/>)}</div></div>}</div> : tab === 'calculator' ? <Calculator plannerSession={plannerSession}/> : tab === 'hub' ? <KnowledgeBaseLive supabase={knowledgeClient}/> : tab === 'dashboard' ? <Dashboard active={active} archived={archived}/> : tab === 'kalender' ? <Calendar items={active} edit={edit}/> : tab === 'uploads' ? <Uploads downloadProject={downloadProject} items={items} edit={edit}/> : <Team user={user} items={tab === 'ruben' ? items.filter(x => x.status === 'MONTAGE' || x.lead === 'Ruben') : items}/>}<Modal open={modal} close={() => setModal(false)}><Form downloadProject={downloadProject} form={form} setForm={setForm} save={save} saving={saving} upload={upload} uploading={uploading} pendingFile={pendingFile} setPendingFile={setPendingFile} /></Modal></div></div>
 }
