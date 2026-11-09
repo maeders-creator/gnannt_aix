@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from 'react'
-import { ShieldCheck, LockKeyhole, PackageSearch, ArrowRight } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { ShieldCheck, LockKeyhole, PackageSearch, Copy } from 'lucide-react'
 import {createWuerthClient,submitWuerthForm} from './wuerthClient.mjs'
+import {groupProducts,matchingPrices,priceLabel} from './wuerthProducts.mjs'
 import './wuerthCatalog.css'
 
 // Live launch remains unavailable until the dedicated OCI credential has been
@@ -10,7 +11,14 @@ export default function WuerthCatalog({plannerSession=''}) {
   const generation=useRef(0)
   const popupRef=useRef(null)
   const ownerRef=useRef(plannerSession)
-  const [details, setDetails] = useState(false)
+  const [products,setProducts]=useState([])
+  const [source,setSource]=useState('')
+  const [loadingProducts,setLoadingProducts]=useState(false)
+  const [productError,setProductError]=useState('')
+  const [query,setQuery]=useState('')
+  const [selectedGroup,setSelectedGroup]=useState('')
+  const [copyStatus,setCopyStatus]=useState('')
+  const [productsRetry,setProductsRetry]=useState(0)
   const [connected,setConnected]=useState(false)
   const [busy,setBusy]=useState(false)
   const [error,setError]=useState('')
@@ -18,12 +26,18 @@ export default function WuerthCatalog({plannerSession=''}) {
   const [cart,setCart]=useState(null)
   const [waiting,setWaiting]=useState(false)
   useEffect(()=>{
-    ++generation.current;let active=true;setConnected(false);setCart(null);setError('');setWaiting(false);setBusy(false)
+    ++generation.current;let active=true;setConnected(false);setCart(null);setError('');setWaiting(false);setBusy(false);setProducts([]);setSource('');setProductError('');setQuery('');setSelectedGroup('');setCopyStatus('');setLoadingProducts(Boolean(plannerSession))
     if(ownerRef.current!==plannerSession){setSessionId('');ownerRef.current=plannerSession}
     if(plannerSession)createWuerthClient(plannerSession)({action:'status'}).then(result=>{if(active)setConnected(result.configured===true)}).catch(()=>{if(active)setError('Verbindungsstatus konnte nicht geladen werden. Bitte erneut prüfen.')})
     return()=>{active=false;++generation.current;if(popupRef.current){try{popupRef.current.close()}catch{}popupRef.current=null}}
   },[plannerSession])
+  useEffect(()=>{
+    let active=true;setProductError('');setLoadingProducts(Boolean(plannerSession))
+    if(plannerSession)createWuerthClient(plannerSession)({action:'products'}).then(result=>{if(active){setProducts(Array.isArray(result.products)?result.products:[]);setSource(result.source||'')}}).catch(()=>{if(active)setProductError('Die Artikelliste konnte nicht geladen werden. Bitte erneut versuchen.')}).finally(()=>{if(active)setLoadingProducts(false)})
+    return()=>{active=false}
+  },[plannerSession,productsRetry])
   async function refresh(){
+    if(!plannerSession||busy)return
     const version=generation.current
     setBusy(true);setError('')
     try{const result=await createWuerthClient(plannerSession)({action:sessionId?'result':'status',...(sessionId?{id:sessionId}:{})});if(version!==generation.current)return;if(sessionId){setCart(result.cart);setWaiting(result.status==='pending')}else setConnected(result.configured===true)}catch(e){if(version===generation.current)setError(e.message)}finally{if(version===generation.current)setBusy(false)}
@@ -37,6 +51,12 @@ export default function WuerthCatalog({plannerSession=''}) {
     setBusy(true);setError('');setCart(null);setWaiting(false)
     try{const result=await createWuerthClient(plannerSession)({action:'launch'});if(version!==generation.current){popup.close();return}submitWuerthForm(popup,result.launch);setSessionId(result.id);setWaiting(true)}catch(e){popup.close();if(version===generation.current)setError(e.message)}finally{if(version===generation.current)setBusy(false)}
   }
+  async function copyArticle(article){
+    const version=generation.current
+    try{await navigator.clipboard.writeText(String(article));if(version===generation.current)setCopyStatus(`Artikelnummer ${article} kopiert.`)}catch{if(version===generation.current)setCopyStatus(`Bitte Artikelnummer ${article} markieren und kopieren.`)}
+  }
+  const groups=useMemo(()=>groupProducts(products),[products])
+  const filteredGroups=useMemo(()=>groupProducts(products,query,selectedGroup),[products,query,selectedGroup])
   return <section className="wu-catalog" aria-labelledby="wu-title">
     <div className="wu-hero">
       <div className="wu-eyebrow">WÜRTH · EINKAUF & MATERIAL</div>
@@ -56,21 +76,21 @@ export default function WuerthCatalog({plannerSession=''}) {
         {waiting&&<p role="status">Noch keine Auswahl zurückgegeben. Im Würth-Katalog die Rückgabe an das Portal wählen, danach hier die Auswahl abrufen.</p>}
         {error&&<p role="alert">{error}</p>}
       </div>
-      <div className="wu-panel wu-steps">
-        <h3>So funktioniert die Anbindung</h3>
-        <ol>
-          <li><strong>Katalog öffnen</strong><span>Mit eurem eigenen Würth-OCI-Zugang.</span></li>
-          <li><strong>Artikel und Preise ansehen</strong><span>Eure Konditionen direkt im Würth-Katalog prüfen.</span></li>
-          <li><strong>Auswahl zurückholen</strong><span>Artikel als Katalogvorschau ins Portal übernehmen. Keine Bestellung.</span></li>
-        </ol>
-        <button type="button" className="wu-details-button" aria-expanded={details} aria-controls="wu-setup-details" onClick={() => setDetails(value => !value)}>{details ? 'Details ausblenden' : 'Was fehlt noch?'}<ArrowRight size={16} aria-hidden="true"/></button>
-        {details && <div id="wu-setup-details" className="wu-details">
-          <p>Die Bestellauslösung wurde nach eurer Rückmeldung bei Würth deaktiviert.</p>
-          <p>Benötigt wird jetzt der separate OCI-Zugang, nicht das normale Shop-Login. Das Passwort wird ausschließlich über einen sicheren Einrichtungsweg hinterlegt, nicht hier im Portal oder im Chat.</p>
-          <p>Danach prüfen wir Anmeldung, persönliche Preise und die Rückgabe der Auswahl, ohne eine Bestellung auszulösen.</p>
-        </div>}
-      </div>
     </div>
-    {cart&&<section className="wu-panel" aria-label="Katalogvorschau"><h3>Deine Katalogauswahl</h3><p>Unbestätigte Katalogvorschau · Keine Bestellung. Preise beziehen sich auf die angezeigte Preiseinheit.</p><div className="wu-cart-list">{cart.items?.map(item=><article key={item.index}><strong>{item.description}</strong><p>Artikel {item.supplierArticle||item.materialNumber||'ohne Nummer'} · Menge {item.quantity} {item.unit}</p><p>{item.price===null?'Preis nicht verfügbar':`${item.price} ${item.currency} je ${item.priceUnit} ${item.unit}`}</p></article>)}</div></section>}
+    {plannerSession&&ownerRef.current===plannerSession&&<section className="wu-panel wu-products" aria-labelledby="wu-products-title">
+      <div className="wu-products-heading"><div><h3 id="wu-products-title">Eure Top-Artikel</h3><p>{products.length} Artikel · {groups.length} Produktgruppen{source&&` · ${source}`}</p></div></div>
+      <p>Artikelnummer kopieren und im Würth-Katalog suchen. Zurückgegebene OCI-Preise erscheinen bei exakt passender Würth-Artikelnummer.</p>
+      <div className="wu-filters"><label>Artikel suchen<input type="search" value={query} onChange={event=>setQuery(event.target.value)} placeholder="Artikelnummer, Bezeichnung oder Produktgruppe"/></label><label>Produktgruppe<select value={selectedGroup} onChange={event=>setSelectedGroup(event.target.value)}><option value="">Alle Produktgruppen</option>{groups.map(([group,items])=><option key={group} value={group}>{group} ({items.length})</option>)}</select></label></div>
+      {loadingProducts&&<p role="status">Artikelliste wird geladen …</p>}
+      {productError&&<div><p role="alert">{productError}</p><button type="button" className="wu-details-button" onClick={()=>setProductsRetry(value=>value+1)}>Artikelliste erneut laden</button></div>}
+      {!loadingProducts&&!productError&&<p role="status">{filteredGroups.reduce((sum,[,items])=>sum+items.length,0)} Artikel gefunden</p>}
+      {copyStatus&&<p role="status">{copyStatus}</p>}
+      {cart&&<p className="wu-price-note">Unbestätigte OCI-Katalogvorschau · Keine Bestellung. Preise gelten nur für die zurückgegebene Menge und Preiseinheit.</p>}
+      {filteredGroups.map(([group,items])=><details className="wu-product-group" key={group} open><summary>{group}<span>{items.length} Artikel</span></summary><div className="wu-product-list">{items.map((product,index)=>{
+        const prices=matchingPrices(product,cart?.items)
+        return <article key={`${product.article_number}-${product.source_row??index}`} className="wu-product"><div><h4>{product.description}</h4><div className="wu-article-number">Art. {product.article_number}<button type="button" aria-label={`Artikelnummer ${product.article_number} kopieren`} onClick={()=>copyArticle(product.article_number)}><Copy size={14} aria-hidden="true"/> Kopieren</button></div></div><div className="wu-product-prices">{prices.length===0?<p>Noch kein OCI-Preis</p>:<>{prices.length>1&&<p className="wu-price-note">Mehrere OCI-Positionen · einzeln prüfen</p>}{prices.map((item,i)=><div key={i}><p><strong>{priceLabel(item)}</strong></p><p>Menge {item.quantity??'unbekannt'} {item.unit||''}</p></div>)}</>}</div></article>
+      })}</div></details>)}
+    </section>}
+    {plannerSession&&ownerRef.current===plannerSession&&cart&&<section className="wu-panel" aria-label="Katalogvorschau"><h3>Deine Katalogauswahl</h3><p>Unbestätigte Katalogvorschau · Keine Bestellung. Preise beziehen sich auf die angezeigte Preiseinheit.</p><div className="wu-cart-list">{cart.items?.map(item=><article key={item.index}><strong>{item.description}</strong><p>Artikel {item.supplierArticle||'ohne Würth-Nummer'} · Menge {item.quantity} {item.unit}</p><p>{priceLabel(item)}</p></article>)}</div></section>}
   </section>
 }

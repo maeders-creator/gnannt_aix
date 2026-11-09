@@ -69,3 +69,21 @@ test('SQL uses invoker privileges, service-only grants, atomic expiry check and 
  assert.match(sql,/pg_advisory_xact_lock/);assert.match(sql,/RATE_LIMIT/)
  const config=readFileSync('supabase/config.toml','utf8');assert.match(config,/\[functions.wuerth-oci\]\s+verify_jwt = false/)
 })
+
+test('products require portal login, are no-store and do not depend on OCI credentials',async()=>{
+ let reads=0
+ const data=[{article_number:'000123',description:'Demo',product_group:'Gruppe',source_row:3}]
+ const authenticate=plannerAuth(async(_url,options)=>new Response(JSON.stringify(options.headers['x-planer-session']===token?{data:[]}:{error:'no'})))
+ const handler=createHandler({store:{products:async()=>{reads++;return data}},authenticate})
+ const request=session=>new Request(API,{method:'POST',headers:{'content-type':'application/json',origin:PORTAL,...(session?{'x-planer-session':session}:{})},body:JSON.stringify({action:'products'})})
+ for(const session of ['', 'bad'])assert.equal((await handler(request(session))).status,401)
+ assert.equal(reads,0)
+ const response=await handler(request(token));assert.equal(response.status,200);assert.match(response.headers.get('cache-control'),/no-store/)
+ const result=await response.json();assert.deepEqual(result.products,data);assert.equal(result.count,1);assert.equal(result.ordered,false);assert.equal(reads,1)
+})
+test('product table is service-read-only, RLS protected, and contains no prices',()=>{
+ const sql=readFileSync('supabase/WUERTH_PRODUCTS.sql','utf8')
+ assert.match(sql,/enable row level security/);assert.match(sql,/revoke all on public.wuerth_products from public, anon, authenticated/)
+ assert.match(sql,/grant select on public.wuerth_products to service_role/)
+ assert.doesNotMatch(sql,/grant .*?(insert|update|delete)|price|Umsatz|Fakturamenge/i)
+})

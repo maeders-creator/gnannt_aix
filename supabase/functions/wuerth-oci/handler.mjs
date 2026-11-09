@@ -30,6 +30,11 @@ export function plannerAuth(fetcher=fetch) {
 }
 export function databaseStore(db) {
   return {
+    async products(){
+      const r=await db.from('wuerth_products').select('article_number,description,product_group,source_row').eq('source_key','top-artikel-fensterbau').order('product_group').order('description').limit(1000)
+      if(r.error)throw new Error('products failed')
+      return r.data
+    },
     async create({id,ownerHash,stateHash}){
       const r=await db.rpc('wuerth_create_session',{p_id:id,p_owner:ownerHash,p_state:stateHash})
       if(r.error){if(r.error.message?.includes('RATE_LIMIT'))throw new HttpError('RATE_LIMIT',429);throw new Error('create failed')}
@@ -73,6 +78,10 @@ export function createHandler({store,env=()=>undefined,authenticate=plannerAuth(
       const ownerHash=await authenticate(req)
       const input=JSON.parse(await readBounded(req,4096))
       if(!input||typeof input!=='object'||Array.isArray(input))throw new HttpError('INVALID_INPUT')
+      if(input.action==='products'){
+        const products=await store.products()
+        return reply({products,count:products.length,source:'Top-Artikel Fensterbau.xlsx',ordered:false})
+      }
       const credentials={organization:env('WUERTH_OCI_ORGANIZATION'),name:env('WUERTH_OCI_NAME'),password:env('WUERTH_OCI_PASSWORD')}
       const configured=Object.values(credentials).every(x=>typeof x==='string'&&x.length>0)
       const approved=env('WUERTH_OCI_ENABLED')==='true'&&env('WUERTH_OCI_CATALOG_ONLY')==='true'
